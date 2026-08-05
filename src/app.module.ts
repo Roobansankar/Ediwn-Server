@@ -160,11 +160,11 @@ function getBooleanConfig(
           ProjectAccess,
           AdvanceRequest,
         ],
-        synchronize: getBooleanConfig(
-          configService,
-          'TYPEORM_SYNCHRONIZE',
-          false,
-        ),
+        // Always false — schema changes go through src/migrations only.
+        // synchronize:true would auto-alter (and can silently drop) columns
+        // to match the entity files on every boot; never wire this back up
+        // to an env var.
+        synchronize: false,
         logging: getBooleanConfig(configService, 'TYPEORM_LOGGING', false),
       }),
     }),
