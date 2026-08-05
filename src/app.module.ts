@@ -36,6 +36,7 @@ import { OfficeReportsModule } from './office-reports/office-reports.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { MaterialReceivedModule } from './material-received/material-received.module.js';
 import { ProjectAccessModule } from './project-access/project-access.module.js';
+import { AdvanceRequestsModule } from './advance-requests/advance-requests.module.js';
 
 // Entity imports
 import { User } from './users/entities/user.entity.js';
@@ -82,6 +83,7 @@ import { OfficeReport } from './office-reports/entities/office-report.entity.js'
 import { Notification } from './notifications/entities/notification.entity.js';
 import { MaterialReceived } from './material-received/entities/material-received.entity.js';
 import { ProjectAccess } from './project-access/entities/project-access.entity.js';
+import { AdvanceRequest } from './advance-requests/entities/advance-request.entity.js';
 
 function getBooleanConfig(
   configService: ConfigService,
@@ -156,6 +158,7 @@ function getBooleanConfig(
           Notification,
           MaterialReceived,
           ProjectAccess,
+          AdvanceRequest,
         ],
         synchronize: getBooleanConfig(
           configService,
@@ -199,6 +202,7 @@ function getBooleanConfig(
     NotificationsModule,
     MaterialReceivedModule,
     ProjectAccessModule,
+    AdvanceRequestsModule,
   ],
 })
 export class AppModule {}

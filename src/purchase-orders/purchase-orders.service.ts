@@ -6,6 +6,8 @@ import { PoItem } from './entities/po-item.entity.js';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto.js';
 import { PurchaseOrderStatus } from '../common/enums.js';
 import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry.entity.js';
+import { AdvanceRequest } from '../advance-requests/entities/advance-request.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 
 type RequestUser = { id: string; role: string; name?: string };
@@ -17,6 +19,9 @@ export class PurchaseOrdersService {
     @InjectRepository(PoItem) private poItemRepo: Repository<PoItem>,
     @InjectRepository(PurchaseEnquiry)
     private purchaseEnquiryRepo: Repository<PurchaseEnquiry>,
+    @InjectRepository(AdvanceRequest)
+    private advanceRequestRepo: Repository<AdvanceRequest>,
+    @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -60,7 +65,6 @@ export class PurchaseOrdersService {
       vendorId: dto.vendorId,
       projectId: dto.projectId,
       materialRequirementNo: dto.materialRequirementNo,
-      paymentTerms: dto.paymentTerms,
       billFileUrl: dto.billFileUrl,
       billFileKey: dto.billFileKey,
       totalAmount: basicAmount,
@@ -74,10 +78,36 @@ export class PurchaseOrdersService {
   }
 
   async findAll() {
-    return this.poRepo.find({
+    const pos = await this.poRepo.find({
       where: { isDeleted: false },
       relations: ['vendor', 'items', 'project'],
       order: { createdAt: 'DESC' },
+    });
+    if (pos.length === 0) return pos;
+
+    const paidRows = await this.paymentRepo
+      .createQueryBuilder('p')
+      .select('p.purchaseOrderId', 'purchaseOrderId')
+      .addSelect('SUM(p.amount)', 'total')
+      .where('p.isDeleted = false')
+      .andWhere('p.purchaseOrderId IN (:...ids)', { ids: pos.map((po) => po.id) })
+      .groupBy('p.purchaseOrderId')
+      .getRawMany<{ purchaseOrderId: string; total: string }>();
+    const paidByPo = new Map(paidRows.map((r) => [r.purchaseOrderId, Number(r.total)]));
+
+    const acceptedAdvances = await this.advanceRequestRepo.find({
+      where: { status: 'accepted', isDeleted: false },
+    });
+    const advanceByVendorAndMr = new Map<string, number>();
+    for (const adv of acceptedAdvances) {
+      const key = `${adv.vendorId}|${adv.materialRequirementNo || ''}`;
+      advanceByVendorAndMr.set(key, (advanceByVendorAndMr.get(key) || 0) + Number(adv.amount));
+    }
+
+    return pos.map((po) => {
+      const advanceAmount = advanceByVendorAndMr.get(`${po.vendorId}|${po.materialRequirementNo || ''}`) || 0;
+      const paidAmount = paidByPo.get(po.id) || 0;
+      return Object.assign(po, { advanceAmount, paidAmount });
     });
   }
 

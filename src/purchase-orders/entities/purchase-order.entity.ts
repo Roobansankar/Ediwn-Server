@@ -12,6 +12,7 @@ import { PurchaseOrderStatus } from '../../common/enums.js';
 import { Vendor } from '../../vendors/entities/vendor.entity.js';
 import { Project } from '../../projects/entities/project.entity.js';
 import { PoItem } from './po-item.entity.js';
+import { Payment } from '../../payments/entities/payment.entity.js';
 
 @Entity('purchase_orders')
 export class PurchaseOrder {
@@ -37,9 +38,6 @@ export class PurchaseOrder {
 
   @Column({ nullable: true })
   materialRequirementNo: string;
-
-  @Column({ type: 'text', nullable: true })
-  paymentTerms: string;
 
   @Column({ type: 'varchar', length: 50, default: PurchaseOrderStatus.PENDING })
   status: PurchaseOrderStatus;
@@ -67,6 +65,9 @@ export class PurchaseOrder {
     eager: true,
   })
   items: PoItem[];
+
+  @OneToMany(() => Payment, (payment) => payment.purchaseOrder)
+  payments: Payment[];
 
   @Column({ default: false })
   isDeleted: boolean;

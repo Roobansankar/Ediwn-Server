@@ -38,11 +38,13 @@ export class PaymentsController {
   @ApiOperation({ summary: 'List payments' })
   @ApiQuery({ name: 'type', required: false, enum: PaymentType })
   @ApiQuery({ name: 'projectId', required: false })
+  @ApiQuery({ name: 'purchaseOrderId', required: false })
   @ApiQuery({ name: 'dateFrom', required: false })
   @ApiQuery({ name: 'dateTo', required: false })
   findAll(
     @Query('type') type?: PaymentType,
     @Query('projectId') projectId?: string,
+    @Query('purchaseOrderId') purchaseOrderId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('page') page?: number,
@@ -51,6 +53,7 @@ export class PaymentsController {
     return this.paymentsService.findAll({
       type,
       projectId,
+      purchaseOrderId,
       dateFrom,
       dateTo,
       page,

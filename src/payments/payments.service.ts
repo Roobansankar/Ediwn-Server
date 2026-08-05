@@ -14,6 +14,7 @@ import {
 import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
 import { Expense } from '../expenses/entities/expense.entity.js';
 import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
+import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
 
 @Injectable()
 export class PaymentsService {
@@ -47,6 +48,16 @@ export class PaymentsService {
         }
 
         await manager.save(bill);
+      }
+
+      if (dto.purchaseOrderId) {
+        const po = await manager.findOne(PurchaseOrder, {
+          where: { id: dto.purchaseOrderId },
+        });
+        if (!po) throw new NotFoundException('Purchase Order not found');
+
+        if (!projectId) projectId = po.projectId;
+        if (!vendorId) vendorId = po.vendorId;
       }
 
       if (dto.salesInvoiceId) {
@@ -89,17 +100,19 @@ export class PaymentsService {
   async findAll(query: {
     type?: PaymentType;
     projectId?: string;
+    purchaseOrderId?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
     limit?: number;
   }) {
-    const { type, projectId, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { type, projectId, purchaseOrderId, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const qb = this.paymentsRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.project', 'project')
       .leftJoinAndSelect('p.vendor', 'vendor')
       .leftJoinAndSelect('p.purchaseBill', 'purchaseBill')
+      .leftJoinAndSelect('p.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('p.expense', 'expense')
       .leftJoinAndSelect('p.salesInvoice', 'salesInvoice')
       .leftJoinAndSelect('salesInvoice.project', 'invoiceProject')
@@ -110,6 +123,7 @@ export class PaymentsService {
       });
     if (type) qb.andWhere('p.paymentType = :type', { type });
     if (projectId) qb.andWhere('p.projectId = :projectId', { projectId });
+    if (purchaseOrderId) qb.andWhere('p.purchaseOrderId = :purchaseOrderId', { purchaseOrderId });
     if (dateFrom && dateTo)
       qb.andWhere('p.paymentDate BETWEEN :dateFrom AND :dateTo', {
         dateFrom,
