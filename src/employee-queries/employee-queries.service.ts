@@ -47,17 +47,21 @@ export class EmployeeQueriesService {
       where: {
         timesheetId: dto.timesheetId,
         siteEngineerId: userId,
+        dayIndex: dto.dayIndex,
         status: 'pending',
         isDeleted: false,
       },
     });
     if (existing)
-      throw new ConflictException('An edit request is already pending');
+      throw new ConflictException(
+        'An edit request for that day is already pending',
+      );
 
     const query = this.queryRepo.create({
       timesheetId: dto.timesheetId,
       siteEngineerId: userId,
       reason: dto.reason,
+      dayIndex: dto.dayIndex,
       status: 'pending',
     });
     return this.queryRepo.save(query);
@@ -91,8 +95,18 @@ export class EmployeeQueriesService {
       // and let the cascade save persist both in one go. A separate raw
       // rowRepo.update() here would get clobbered by this cascade save
       // re-writing the (stale, pre-update) in-memory rows over it.
-      for (const row of ts.rows) row.submittedMask = 0;
-      ts.status = 'pending';
+      if (query.dayIndex !== null && query.dayIndex !== undefined) {
+        // Only clear this specific day's lock bit — the rest of the week
+        // stays submitted/locked (and visible in the admin verify queue).
+        for (const row of ts.rows) {
+          row.submittedMask = Number(row.submittedMask || 0) & ~(1 << query.dayIndex);
+        }
+      } else {
+        // Legacy request with no day recorded — fall back to the old
+        // whole-week unlock behavior.
+        for (const row of ts.rows) row.submittedMask = 0;
+        ts.status = 'pending';
+      }
       await this.tsRepo.save(ts);
     }
 

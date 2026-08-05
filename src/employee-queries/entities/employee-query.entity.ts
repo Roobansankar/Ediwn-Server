@@ -32,6 +32,9 @@ export class EmployeeQuery {
   @Column({ type: 'text' })
   reason: string;
 
+  @Column({ type: 'smallint', nullable: true })
+  dayIndex: number | null;
+
   @Column({ type: 'varchar', default: 'pending' })
   status: string;
 
