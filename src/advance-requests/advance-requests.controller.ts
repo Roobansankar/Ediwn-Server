@@ -47,12 +47,12 @@ export class AdvanceRequestsController {
 
   @Patch(':id/respond')
   @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
-  @ApiOperation({ summary: 'Accept or reject an advance request' })
+  @ApiOperation({ summary: 'Accept, give final admin approval, or reject a vendor payment request' })
   respond(
     @Param('id') id: string,
     @Body() dto: RespondAdvanceRequestDto,
     @Request() req: any,
   ) {
-    return this.service.respond(id, dto, req.user.id);
+    return this.service.respond(id, dto, req.user.id, req.user.role);
   }
 }

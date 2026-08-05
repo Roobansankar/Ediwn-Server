@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -56,13 +57,27 @@ export class AdvanceRequestsService {
     });
   }
 
-  async respond(id: string, dto: RespondAdvanceRequestDto, userId: string) {
+  async respond(
+    id: string,
+    dto: RespondAdvanceRequestDto,
+    userId: string,
+    userRole: string,
+  ) {
     const request = await this.repo.findOne({
       where: { id, isDeleted: false },
     });
     if (!request) throw new NotFoundException('Advance request not found');
-    if (request.status !== 'pending')
+
+    if (dto.action === 'admin_approved') {
+      if (userRole !== Role.ADMIN)
+        throw new ForbiddenException('Only admin can give final approval');
+      if (request.status !== 'accepted')
+        throw new BadRequestException(
+          'Request must be accepted by accounts before final admin approval',
+        );
+    } else if (request.status !== 'pending') {
       throw new BadRequestException('Request already responded');
+    }
 
     await this.repo.update(id, {
       status: dto.action,
@@ -70,14 +85,21 @@ export class AdvanceRequestsService {
       respondedAt: new Date(),
     });
 
+    const titles: Record<string, string> = {
+      accepted: 'Vendor Payment Request Accepted by Accounts',
+      admin_approved: 'Vendor Payment Request Approved by Admin',
+      rejected: 'Vendor Payment Request Rejected',
+    };
+    const messages: Record<string, string> = {
+      accepted: `Your vendor payment request for ${request.amount} was accepted by accounts — awaiting final admin approval.`,
+      admin_approved: `Your vendor payment request for ${request.amount} received final admin approval.`,
+      rejected: `Your vendor payment request for ${request.amount} was rejected.`,
+    };
     await this.notifications.createForUser(request.requestedById, {
       userId,
       type: 'advance_request_response',
-      title: dto.action === 'accepted' ? 'Vendor Payment Request Accepted' : 'Vendor Payment Request Rejected',
-      message:
-        dto.action === 'accepted'
-          ? `Your vendor payment request for ${request.amount} was accepted.`
-          : `Your vendor payment request for ${request.amount} was rejected.`,
+      title: titles[dto.action],
+      message: messages[dto.action],
       link: '/dashboard/advance',
       entityId: request.id,
     });

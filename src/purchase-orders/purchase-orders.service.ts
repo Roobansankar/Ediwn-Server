@@ -95,11 +95,13 @@ export class PurchaseOrdersService {
       .getRawMany<{ purchaseOrderId: string; total: string }>();
     const paidByPo = new Map(paidRows.map((r) => [r.purchaseOrderId, Number(r.total)]));
 
-    const acceptedAdvances = await this.advanceRequestRepo.find({
-      where: { status: 'accepted', isDeleted: false },
+    // Only count advances that have received final admin approval — accounts-only
+    // "accepted" is just the first stage and isn't money committed yet.
+    const approvedAdvances = await this.advanceRequestRepo.find({
+      where: { status: 'admin_approved', isDeleted: false },
     });
     const advanceByVendorAndMr = new Map<string, number>();
-    for (const adv of acceptedAdvances) {
+    for (const adv of approvedAdvances) {
       const key = `${adv.vendorId}|${adv.materialRequirementNo || ''}`;
       advanceByVendorAndMr.set(key, (advanceByVendorAndMr.get(key) || 0) + Number(adv.amount));
     }
