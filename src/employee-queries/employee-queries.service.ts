@@ -12,6 +12,9 @@ import { CreateEmployeeQueryDto } from './dto/create-employee-query.dto.js';
 import { RespondEmployeeQueryDto } from './dto/respond-employee-query.dto.js';
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
 import { Role } from '../common/enums.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 @Injectable()
 export class EmployeeQueriesService {
@@ -20,6 +23,7 @@ export class EmployeeQueriesService {
     private queryRepo: Repository<EmployeeQuery>,
     @InjectRepository(WeeklyTimesheet)
     private tsRepo: Repository<WeeklyTimesheet>,
+    private notifications: NotificationsService,
   ) {}
 
   async create(dto: CreateEmployeeQueryDto, userId: string) {
@@ -120,6 +124,23 @@ export class EmployeeQueriesService {
       respondedById: adminUserId,
       respondedAt: new Date(),
     });
+
+    const dayLabel =
+      query.dayIndex !== null && query.dayIndex !== undefined
+        ? DAY_LABELS[query.dayIndex]
+        : 'your timesheet';
+    await this.notifications.createForUser(query.siteEngineerId, {
+      userId: adminUserId,
+      type: 'employee_query_response',
+      title: dto.action === 'approved' ? 'Edit Request Approved' : 'Edit Request Rejected',
+      message:
+        dto.action === 'approved'
+          ? `Your edit request for ${dayLabel} was approved — you can now correct it.`
+          : `Your edit request for ${dayLabel} was rejected.`,
+      link: '/dashboard/timesheet-attendance',
+      entityId: query.timesheetId,
+    });
+
     return this.queryRepo.findOne({ where: { id }, relations: ['timesheet'] });
   }
 }
