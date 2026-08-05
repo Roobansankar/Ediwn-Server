@@ -35,8 +35,8 @@ export class AdvanceRequestsService {
     await this.notifications.createForRole(Role.ACCOUNTS_MANAGER, {
       userId,
       type: 'advance_request',
-      title: 'New Advance Request',
-      message: `An advance of ${dto.amount} was requested${dto.materialRequirementNo ? ` for ${dto.materialRequirementNo}` : ''}`,
+      title: 'New Vendor Payment Request',
+      message: `A vendor payment of ${dto.amount} was requested${dto.materialRequirementNo ? ` for ${dto.materialRequirementNo}` : ''}`,
       link: '/dashboard/advance-requests',
       entityId: saved.id,
     });
@@ -73,11 +73,11 @@ export class AdvanceRequestsService {
     await this.notifications.createForUser(request.requestedById, {
       userId,
       type: 'advance_request_response',
-      title: dto.action === 'accepted' ? 'Advance Request Accepted' : 'Advance Request Rejected',
+      title: dto.action === 'accepted' ? 'Vendor Payment Request Accepted' : 'Vendor Payment Request Rejected',
       message:
         dto.action === 'accepted'
-          ? `Your advance request for ${request.amount} was accepted.`
-          : `Your advance request for ${request.amount} was rejected.`,
+          ? `Your vendor payment request for ${request.amount} was accepted.`
+          : `Your vendor payment request for ${request.amount} was rejected.`,
       link: '/dashboard/advance',
       entityId: request.id,
     });
