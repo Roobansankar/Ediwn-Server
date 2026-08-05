@@ -24,6 +24,7 @@ export class AdvanceRequestsService {
       vendorId: dto.vendorId,
       projectId: dto.projectId,
       materialRequirementNo: dto.materialRequirementNo || null,
+      vendorQuotationId: dto.vendorQuotationId || null,
       amount: dto.amount,
       notes: dto.notes || null,
       requestedById: userId,

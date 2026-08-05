@@ -24,6 +24,7 @@ export class CreateVendorQuotationDto {
   @ValidateNested({ each: true })
   @Type(() => QuotationItemDto)
   items: QuotationItemDto[];
+  @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() totalAmount?: number;
   @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
   @ApiPropertyOptional() @IsUUID() @IsOptional() groupId?: string;
 }

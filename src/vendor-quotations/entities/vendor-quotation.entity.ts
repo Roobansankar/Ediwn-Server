@@ -36,6 +36,9 @@ export class VendorQuotation {
   @Column({ type: 'jsonb', default: [] })
   items: { description: string; quantity: number }[];
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  totalAmount: number | null;
+
   @Column({ nullable: true })
   quotationUrl: string;
 

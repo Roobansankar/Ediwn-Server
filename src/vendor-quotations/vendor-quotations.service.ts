@@ -20,6 +20,7 @@ export class VendorQuotationsService {
       projectId: dto.projectId,
       vendorId: dto.vendorId,
       items: dto.items,
+      totalAmount: dto.totalAmount,
       materialRequirementId: dto.materialRequirementId,
       status: 'pending',
     });

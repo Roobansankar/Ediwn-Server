@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Vendor } from '../../vendors/entities/vendor.entity.js';
 import { Project } from '../../projects/entities/project.entity.js';
+import { VendorQuotation } from '../../vendor-quotations/entities/vendor-quotation.entity.js';
 
 @Entity('advance_requests')
 export class AdvanceRequest {
@@ -31,6 +32,13 @@ export class AdvanceRequest {
 
   @Column({ type: 'varchar', nullable: true })
   materialRequirementNo: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  vendorQuotationId: string | null;
+
+  @ManyToOne(() => VendorQuotation, { eager: true })
+  @JoinColumn({ name: 'vendorQuotationId' })
+  vendorQuotation: VendorQuotation | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;

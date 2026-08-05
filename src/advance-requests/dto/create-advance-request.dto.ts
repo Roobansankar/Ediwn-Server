@@ -15,6 +15,11 @@ export class CreateAdvanceRequestDto {
   @IsOptional()
   materialRequirementNo?: string;
 
+  @ApiPropertyOptional({ example: 'uuid-of-vendor-quotation' })
+  @IsUUID()
+  @IsOptional()
+  vendorQuotationId?: string;
+
   @ApiProperty({ example: 25000 })
   @IsNumber()
   @Min(0.01)
