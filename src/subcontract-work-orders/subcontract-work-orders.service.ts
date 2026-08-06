@@ -10,12 +10,15 @@ import { SubcontractWorkOrder } from './entities/subcontract-work-order.entity.j
 import { CreateSubcontractWorkOrderDto } from './dto/create-subcontract-work-order.dto.js';
 import { UpdateSubcontractWorkOrderDto } from './dto/update-subcontract-work-order.dto.js';
 import { Role } from '../common/enums.js';
+import { Payment } from '../payments/entities/payment.entity.js';
 
 @Injectable()
 export class SubcontractWorkOrdersService {
   constructor(
     @InjectRepository(SubcontractWorkOrder)
     private readonly repository: Repository<SubcontractWorkOrder>,
+    @InjectRepository(Payment)
+    private readonly paymentRepo: Repository<Payment>,
   ) {}
 
   async create(dto: CreateSubcontractWorkOrderDto) {
@@ -36,7 +39,7 @@ export class SubcontractWorkOrdersService {
   }
 
   async findAll(subcontractorId?: string) {
-    return await this.repository.find({
+    const swos = await this.repository.find({
       where: {
         isDeleted: false,
         ...(subcontractorId ? { subcontractorId } : {}),
@@ -44,6 +47,25 @@ export class SubcontractWorkOrdersService {
       relations: ['project', 'subcontractor', 'workCategory'],
       order: { woNumber: 'DESC' },
     });
+    if (swos.length === 0) return swos;
+
+    const paidRows = await this.paymentRepo
+      .createQueryBuilder('p')
+      .select('p.subcontractWorkOrderId', 'subcontractWorkOrderId')
+      .addSelect('SUM(p.amount)', 'total')
+      .where('p.isDeleted = false')
+      .andWhere('p.subcontractWorkOrderId IN (:...ids)', {
+        ids: swos.map((swo) => swo.id),
+      })
+      .groupBy('p.subcontractWorkOrderId')
+      .getRawMany<{ subcontractWorkOrderId: string; total: string }>();
+    const paidBySwo = new Map(
+      paidRows.map((r) => [r.subcontractWorkOrderId, Number(r.total)]),
+    );
+
+    return swos.map((swo) =>
+      Object.assign(swo, { paidAmount: paidBySwo.get(swo.id) || 0 }),
+    );
   }
 
   async findOne(id: string) {
