@@ -2,12 +2,14 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SubcontractWorkOrder } from './entities/subcontract-work-order.entity.js';
 import { CreateSubcontractWorkOrderDto } from './dto/create-subcontract-work-order.dto.js';
 import { UpdateSubcontractWorkOrderDto } from './dto/update-subcontract-work-order.dto.js';
+import { Role } from '../common/enums.js';
 
 @Injectable()
 export class SubcontractWorkOrdersService {
@@ -65,7 +67,12 @@ export class SubcontractWorkOrdersService {
     return await this.repository.save(swo);
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(id: string, status: string, userRole?: string) {
+    if (userRole === Role.PURCHASE_TEAM && status === 'admin_approved') {
+      throw new ForbiddenException(
+        'Purchase team cannot set admin approval on their own work orders',
+      );
+    }
     const swo = await this.findOne(id);
     swo.status = status as any;
     return await this.repository.save(swo);

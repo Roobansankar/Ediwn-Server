@@ -10,6 +10,7 @@ import {
   Query,
   UseInterceptors,
   UploadedFile,
+  Request,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -124,8 +125,13 @@ export class SubcontractWorkOrdersController {
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateSubcontractWorkOrderStatusDto,
+    @Request() req: any,
   ) {
-    return this.subcontractWorkOrdersService.updateStatus(id, dto.status);
+    return this.subcontractWorkOrdersService.updateStatus(
+      id,
+      dto.status,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
