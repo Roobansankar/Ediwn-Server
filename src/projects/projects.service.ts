@@ -22,6 +22,8 @@ import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
 import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
+import { DailyLabourReport } from '../daily-labour/entities/daily-labour-report.entity.js';
+import { Trade } from '../trades/entities/trade.entity.js';
 import {
   SubcontractWorkOrderStatus,
   BillStatus,
@@ -59,6 +61,9 @@ export class ProjectsService {
     @InjectRepository(User) private usersRepo: Repository<User>,
     @InjectRepository(WeeklyTimesheet)
     private timesheetsRepo: Repository<WeeklyTimesheet>,
+    @InjectRepository(DailyLabourReport)
+    private dailyLabourRepo: Repository<DailyLabourReport>,
+    @InjectRepository(Trade) private tradesRepo: Repository<Trade>,
   ) {}
 
   async create(dto: CreateProjectDto, userId?: string): Promise<Project> {
@@ -203,6 +208,7 @@ export class ProjectsService {
       invoices,
       payments,
       approvedTimesheets,
+      approvedDailyLabourReports,
     ] = await Promise.all([
         this.expensesRepo.find({
           where: {
@@ -260,6 +266,10 @@ export class ProjectsService {
           .where('ts.isDeleted = false')
           .andWhere('ts.status = :status', { status: 'approved' })
           .getMany(),
+        this.dailyLabourRepo.find({
+          where: { projectId: id, isDeleted: false, status: 'approved' },
+          order: { reportDate: 'DESC' },
+        }),
       ]);
 
     const siteEngineerIds = [
@@ -310,6 +320,43 @@ export class ProjectsService {
       (a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name),
     );
 
+    // Daily labour cost = shift-wise rate x number of shifts x worker count,
+    // e.g. a rate of 800/shift worked for 2 shifts = 800 x 2. Prefer the rate
+    // captured on the worker entry itself (auto-filled from the trade's rate
+    // at entry time, editable per line); older entries saved before that
+    // field existed have no rate stored, so fall back to the trade's
+    // currently configured shiftWiseAmount from the Labour Trades list.
+    const allTrades = await this.tradesRepo.find();
+    const tradeById = new Map(allTrades.map((t) => [t.id, t]));
+    const tradeByName = new Map(
+      allTrades.map((t) => [t.name.trim().toLowerCase(), t]),
+    );
+    const resolveTradeRate = (tradeId: string | null, tradeName: string) => {
+      const trade =
+        (tradeId && tradeById.get(tradeId)) ||
+        tradeByName.get((tradeName || '').trim().toLowerCase());
+      return Number(trade?.shiftWiseAmount || 0);
+    };
+
+    const dailyLabourCost = approvedDailyLabourReports.flatMap((report) =>
+      (report.workers || []).map((worker) => {
+        const rate =
+          Number(worker.shiftAmount || 0) ||
+          resolveTradeRate(worker.tradeId, worker.trade);
+        const shift = Number(worker.shift || 1);
+        const count = Number(worker.count || 1);
+        return {
+          reportId: report.id,
+          reportDate: report.reportDate,
+          trade: worker.trade,
+          count,
+          shift,
+          rate,
+          amount: rate * shift * count,
+        };
+      }),
+    );
+
     return {
       project,
       expenses,
@@ -318,6 +365,7 @@ export class ProjectsService {
       invoices,
       payments,
       timesheetSummary,
+      dailyLabourCost,
     };
   }
 

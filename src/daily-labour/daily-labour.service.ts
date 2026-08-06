@@ -134,7 +134,28 @@ export class DailyLabourService {
       );
     }
     worker.status = status;
-    return this.workerRepo.save(worker);
+    await this.workerRepo.save(worker);
+
+    // Report-level status is derived from the trade (worker) statuses set by
+    // accounts, not set manually — rejected if any trade is rejected,
+    // approved once every trade is approved, pending otherwise.
+    const report = await this.reportRepo.findOne({
+      where: { id: reportId },
+      relations: ['workers'],
+    });
+    if (report) {
+      report.status = this.computeReportStatus(report.workers);
+      await this.reportRepo.save(report);
+    }
+
+    return worker;
+  }
+
+  private computeReportStatus(workers: DailyWorker[]): string {
+    if (workers.length === 0) return 'pending';
+    if (workers.some((w) => w.status === 'rejected')) return 'rejected';
+    if (workers.every((w) => w.status === 'approved')) return 'approved';
+    return 'pending';
   }
 
   async remove(id: string) {
@@ -181,6 +202,13 @@ export class DailyLabourService {
       await this.workerRepo.save(workers);
     }
 
-    return this.findOne(id);
+    // Workers were just recreated (all back to their default 'pending'
+    // status), so the derived report status must be recomputed to match —
+    // otherwise it would keep showing a stale approved/rejected state.
+    const updated = await this.findOne(id);
+    updated.status = this.computeReportStatus(updated.workers);
+    await this.reportRepo.save(updated);
+
+    return updated;
   }
 }

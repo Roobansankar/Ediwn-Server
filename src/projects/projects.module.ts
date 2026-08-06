@@ -21,6 +21,8 @@ import { Payment } from '../payments/entities/payment.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { ProjectCategory } from '../project-categories/entities/project-category.entity.js';
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
+import { DailyLabourReport } from '../daily-labour/entities/daily-labour-report.entity.js';
+import { Trade } from '../trades/entities/trade.entity.js';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timeshe
       SalesInvoice,
       Payment,
       WeeklyTimesheet,
+      DailyLabourReport,
+      Trade,
     ]),
   ],
   controllers: [ProjectsController],
