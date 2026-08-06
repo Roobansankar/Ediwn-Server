@@ -103,6 +103,17 @@ export class SubcontractorPaymentRequestsService {
       entityId: request.id,
     });
 
+    if (dto.action === 'accepted') {
+      await this.notifications.createForRole(Role.ADMIN, {
+        userId,
+        type: 'subcontractor_payment_request_pending_approval',
+        title: 'Subcontractor Payment Awaiting Your Approval',
+        message: `A subcontractor payment of ${request.amount} was accepted by accounts and needs your final approval.`,
+        link: '/dashboard/subcontractor-payment-requests',
+        entityId: request.id,
+      });
+    }
+
     return this.repo.findOne({ where: { id } });
   }
 }

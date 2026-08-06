@@ -104,6 +104,17 @@ export class AdvanceRequestsService {
       entityId: request.id,
     });
 
+    if (dto.action === 'accepted') {
+      await this.notifications.createForRole(Role.ADMIN, {
+        userId,
+        type: 'advance_request_pending_approval',
+        title: 'Vendor Payment Awaiting Your Approval',
+        message: `A vendor payment of ${request.amount} was accepted by accounts and needs your final approval.`,
+        link: '/dashboard/advance-requests',
+        entityId: request.id,
+      });
+    }
+
     return this.repo.findOne({ where: { id } });
   }
 }
