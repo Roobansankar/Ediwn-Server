@@ -14,6 +14,9 @@ export class Trade {
   @Column({ unique: true })
   name: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  shiftWiseAmount: number | null;
+
   @Column({ default: false })
   isDeleted: boolean;
 

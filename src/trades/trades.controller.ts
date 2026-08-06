@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Delete,
@@ -14,6 +15,7 @@ import { Roles } from '../auth/roles.decorator.js';
 import { Role } from '../common/enums.js';
 import { TradesService } from './trades.service.js';
 import { CreateTradeDto } from './dto/create-trade.dto.js';
+import { UpdateTradeDto } from './dto/update-trade.dto.js';
 
 @ApiTags('Trades')
 @Controller({ path: 'trades', version: '1' })
@@ -33,6 +35,13 @@ export class TradesController {
   @ApiOperation({ summary: 'Get all trades' })
   findAll() {
     return this.tradesService.findAll();
+  }
+
+  @Patch(':id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update a trade' })
+  update(@Param('id') id: string, @Body() dto: UpdateTradeDto) {
+    return this.tradesService.update(id, dto);
   }
 
   @Delete(':id')

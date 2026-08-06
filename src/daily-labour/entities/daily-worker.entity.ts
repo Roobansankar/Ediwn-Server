@@ -38,6 +38,9 @@ export class DailyWorker {
   @Column({ default: 'Morning' })
   shift: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  shiftAmount: number | null;
+
   @Column({ type: 'time', nullable: true })
   inTime: string;
 

@@ -5,6 +5,7 @@ import {
   ValidateNested,
   IsUUID,
   IsDateString,
+  IsNumber,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -26,6 +27,11 @@ export class DailyWorkerDto {
   @ApiProperty()
   @IsString()
   shift: string;
+
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  shiftAmount?: number;
 
   @ApiProperty({ required: false })
   @IsString()

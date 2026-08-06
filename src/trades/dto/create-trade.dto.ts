@@ -1,9 +1,15 @@
-import { IsNotEmpty, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, IsNumber, Min, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTradeDto {
   @ApiProperty({ example: 'Mason' })
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiPropertyOptional({ example: 800 })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  shiftWiseAmount?: number;
 }
