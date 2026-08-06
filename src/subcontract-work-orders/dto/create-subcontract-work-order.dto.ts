@@ -31,6 +31,10 @@ export class CreateSubcontractWorkOrderDto {
 
   @ApiProperty()
   @IsNumber()
+  amount: number;
+
+  @ApiProperty()
+  @IsNumber()
   gstPercentage: number;
 
   @ApiProperty({ required: false })

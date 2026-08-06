@@ -27,9 +27,9 @@ export class SubcontractWorkOrdersService {
     }
 
     const swo = this.repository.create(dto);
-    swo.amount = 0;
-    swo.gstAmount = (0 * Number(dto.gstPercentage || 0)) / 100;
-    swo.totalAmount = swo.gstAmount;
+    swo.amount = Number(dto.amount || 0);
+    swo.gstAmount = (swo.amount * Number(dto.gstPercentage || 0)) / 100;
+    swo.totalAmount = swo.amount + swo.gstAmount;
     return await this.repository.save(swo);
   }
 
@@ -59,9 +59,9 @@ export class SubcontractWorkOrdersService {
   async update(id: string, dto: UpdateSubcontractWorkOrderDto) {
     const swo = await this.findOne(id);
     Object.assign(swo, dto);
-    swo.amount = 0;
-    swo.gstAmount = (0 * Number(dto.gstPercentage ?? swo.gstPercentage)) / 100;
-    swo.totalAmount = swo.gstAmount;
+    swo.amount = Number(dto.amount ?? swo.amount ?? 0);
+    swo.gstAmount = (swo.amount * Number(dto.gstPercentage ?? swo.gstPercentage)) / 100;
+    swo.totalAmount = swo.amount + swo.gstAmount;
     return await this.repository.save(swo);
   }
 
