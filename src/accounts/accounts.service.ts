@@ -10,6 +10,7 @@ import { Project } from '../projects/entities/project.entity.js';
 import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
 import { PoItem } from '../purchase-orders/entities/po-item.entity.js';
 import { BillItem } from './entities/bill-item.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
 import {
   CreateInvoiceDto,
   CreateBillDto,
@@ -35,6 +36,7 @@ export class AccountsService {
     @InjectRepository(PurchaseOrder) private poRepo: Repository<PurchaseOrder>,
     @InjectRepository(PoItem) private poItemRepo: Repository<PoItem>,
     @InjectRepository(BillItem) private billItemRepo: Repository<BillItem>,
+    @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -371,10 +373,48 @@ export class AccountsService {
   }
 
   async getPayables() {
-    return this.billRepo.find({
-      where: { isDeleted: false, paidAt: undefined },
-      relations: ['vendor'],
+    // Payables is driven entirely off Purchase Orders — a PO is the money
+    // owed to a vendor, so Purchase Bills are not listed here separately.
+    const purchaseOrders = await this.poRepo.find({
+      where: { isDeleted: false },
+      relations: ['vendor', 'project'],
     });
+    const paidRows = purchaseOrders.length
+      ? await this.paymentRepo
+          .createQueryBuilder('p')
+          .select('p.purchaseOrderId', 'purchaseOrderId')
+          .addSelect('SUM(p.amount)', 'total')
+          .where('p.isDeleted = false')
+          .andWhere('p.purchaseOrderId IN (:...ids)', {
+            ids: purchaseOrders.map((po) => po.id),
+          })
+          .groupBy('p.purchaseOrderId')
+          .getRawMany<{ purchaseOrderId: string; total: string }>()
+      : [];
+    const paidByPo = new Map(
+      paidRows.map((r) => [r.purchaseOrderId, Number(r.total)]),
+    );
+
+    const poPayables = purchaseOrders
+      .map((po) => {
+        const amount = Number(po.totalWithGst || po.totalAmount || 0);
+        const paidAmount = paidByPo.get(po.id) || 0;
+        return {
+          id: po.id,
+          source: 'purchase_order' as const,
+          billNumber: po.poNumber,
+          vendor: po.vendor,
+          project: po.project,
+          billDate: po.createdAt,
+          dueDate: null,
+          amount,
+          paidAmount,
+          status: po.status,
+        };
+      })
+      .filter((po) => po.amount - po.paidAmount > 0);
+
+    return poPayables;
   }
 
   async getReceivables() {

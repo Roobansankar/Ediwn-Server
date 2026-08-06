@@ -69,14 +69,14 @@ export class VendorQuotationsController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'List all vendor quotations' })
   findAll() {
     return this.service.findAll();
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Get single vendor quotation' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);

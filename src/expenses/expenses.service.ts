@@ -153,15 +153,17 @@ export class ExpensesService {
     user?: { role: string },
     files?: Express.Multer.File[],
   ): Promise<Expense> {
-    if (
-      dto.status !== undefined &&
-      user &&
-      user.role !== Role.ADMIN &&
-      user.role !== Role.ACCOUNTS_MANAGER
-    ) {
-      throw new ForbiddenException(
-        'Only admin and accounts can update expense status',
-      );
+    if (dto.status !== undefined && user) {
+      if (user.role !== Role.ADMIN && user.role !== Role.ACCOUNTS_MANAGER) {
+        throw new ForbiddenException(
+          'Only admin and accounts can update expense status',
+        );
+      }
+      if (user.role === Role.ACCOUNTS_MANAGER && dto.status === 'admin_approved') {
+        throw new ForbiddenException(
+          'Only admin can give final approval',
+        );
+      }
     }
 
     const expense = await this.findOne(id);

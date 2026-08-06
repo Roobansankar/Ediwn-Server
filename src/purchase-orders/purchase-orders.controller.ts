@@ -38,7 +38,7 @@ export class PurchaseOrdersController {
   constructor(private readonly poService: PurchaseOrdersService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Create a new purchase order' })
   create(@Body() dto: CreatePurchaseOrderDto, @Request() req: any) {
     return this.poService.create(dto, req.user.id);
@@ -59,7 +59,7 @@ export class PurchaseOrdersController {
   }
 
   @Patch(':id/status')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Update purchase order status' })
   updateStatus(
     @Param('id') id: string,
@@ -70,14 +70,14 @@ export class PurchaseOrdersController {
   }
 
   @Put(':id')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Update purchase order' })
   update(@Param('id') id: string, @Body() dto: any, @Request() req: any) {
     return this.poService.update(id, dto, req.user.id);
   }
 
   @Post('upload')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -110,7 +110,7 @@ export class PurchaseOrdersController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Delete purchase order' })
   remove(@Param('id') id: string) {
     return this.poService.remove(id);

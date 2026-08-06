@@ -176,20 +176,38 @@ export class DashboardService {
         inv.status !== InvoiceStatus.CANCELLED,
     ).length;
 
-    // 2. Payables Summary (Outstanding bills)
-    const bills = await this.billRepo.find({
+    // 2. Payables Summary — driven off Purchase Orders, same as the
+    // Accounts page's Payables tab (a PO is money owed to a vendor).
+    const purchaseOrdersForPayables = await this.poRepo.find({
       where: { isDeleted: false },
       relations: ['vendor'],
     });
+    const poPaidRows = purchaseOrdersForPayables.length
+      ? await this.paymentRepo
+          .createQueryBuilder('p')
+          .select('p.purchaseOrderId', 'purchaseOrderId')
+          .addSelect('SUM(p.amount)', 'total')
+          .where('p.isDeleted = false')
+          .andWhere('p.purchaseOrderId IN (:...ids)', {
+            ids: purchaseOrdersForPayables.map((po) => po.id),
+          })
+          .groupBy('p.purchaseOrderId')
+          .getRawMany<{ purchaseOrderId: string; total: string }>()
+      : [];
+    const poPaidById = new Map(
+      poPaidRows.map((r) => [r.purchaseOrderId, Number(r.total)]),
+    );
+    const poBalances = purchaseOrdersForPayables.map((po) => {
+      const amount = Number(po.totalWithGst || po.totalAmount || 0);
+      const paidAmount = poPaidById.get(po.id) || 0;
+      return amount - paidAmount;
+    });
 
-    const totalPayable = bills.reduce((sum, bill) => {
-      const balance = Number(bill.amount) - Number(bill.paidAmount || 0);
-      return sum + balance;
-    }, 0);
-
-    const pendingBillCount = bills.filter(
-      (b) => Number(b.amount) - Number(b.paidAmount || 0) > 0,
-    ).length;
+    const totalPayable = poBalances.reduce(
+      (sum, balance) => sum + Math.max(balance, 0),
+      0,
+    );
+    const pendingBillCount = poBalances.filter((balance) => balance > 0).length;
 
     // 3. Recent Payments (Latest 10)
     const recentPayments = await this.paymentRepo.find({
