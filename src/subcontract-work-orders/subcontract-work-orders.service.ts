@@ -86,6 +86,15 @@ export class SubcontractWorkOrdersService {
     swo.amount = Number(dto.amount ?? swo.amount ?? 0);
     swo.gstAmount = (swo.amount * Number(dto.gstPercentage ?? swo.gstPercentage)) / 100;
     swo.totalAmount = swo.amount + swo.gstAmount;
+
+    // project/subcontractor/workCategory are eager-loaded by findOne(), so
+    // they're still the old related entity here. If left in place, TypeORM
+    // resolves the FK column from the stale relation object on save and
+    // silently reverts the new *Id column set above by Object.assign.
+    if (dto.projectId) delete (swo as any).project;
+    if (dto.subcontractorId) delete (swo as any).subcontractor;
+    if (dto.workCategoryId) delete (swo as any).workCategory;
+
     return await this.repository.save(swo);
   }
 

@@ -233,6 +233,8 @@ export class ProjectsService {
             'project',
             'vendor',
             'purchaseBill',
+            'purchaseOrder',
+            'subcontractWorkOrder',
             'expense',
             'salesInvoice',
           ],
