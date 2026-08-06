@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsBoolean,
   IsArray,
+  ValidateIf,
   IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -15,8 +16,8 @@ export class CreateAccountsManagerDto {
   name: string;
 
   @ApiPropertyOptional({ example: 'john@edwinconstructions.com' })
+  @ValidateIf((o) => o.email !== undefined && o.email !== '')
   @IsEmail()
-  @IsOptional()
   email?: string;
 
   @ApiPropertyOptional({ example: 'john_acc' })

@@ -23,14 +23,17 @@ export class OfficeStaffService {
 
   async create(dto: CreateOfficeStaffDto) {
     if (dto.email) {
+      // Login looks a user up by `email = x OR username = x`, so a new
+      // email must not collide with anyone's existing username either —
+      // otherwise the two accounts become ambiguous to log into.
       const existingEmail = await this.userRepository.findOne({
-        where: { email: dto.email },
+        where: [{ email: dto.email }, { username: dto.email }],
       });
       if (existingEmail) throw new ConflictException('Email already in use');
     }
     if (dto.username) {
       const existingUsername = await this.userRepository.findOne({
-        where: { username: dto.username },
+        where: [{ username: dto.username }, { email: dto.username }],
       });
       if (existingUsername)
         throw new ConflictException('Username already in use');
@@ -88,13 +91,13 @@ export class OfficeStaffService {
 
     if (dto.email && dto.email !== staff.email) {
       const existingEmail = await this.userRepository.findOne({
-        where: { email: dto.email },
+        where: [{ email: dto.email }, { username: dto.email }],
       });
       if (existingEmail) throw new ConflictException('Email already in use');
     }
     if (dto.username && dto.username !== staff.username) {
       const existingUsername = await this.userRepository.findOne({
-        where: { username: dto.username },
+        where: [{ username: dto.username }, { email: dto.username }],
       });
       if (existingUsername)
         throw new ConflictException('Username already in use');

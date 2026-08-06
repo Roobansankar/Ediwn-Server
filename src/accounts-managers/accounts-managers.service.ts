@@ -23,14 +23,17 @@ export class AccountsManagersService {
 
   async create(dto: CreateAccountsManagerDto) {
     if (dto.email) {
+      // Login looks a user up by `email = x OR username = x`, so a new
+      // email must not collide with anyone's existing username either —
+      // otherwise the two accounts become ambiguous to log into.
       const existingEmail = await this.userRepository.findOne({
-        where: { email: dto.email },
+        where: [{ email: dto.email }, { username: dto.email }],
       });
       if (existingEmail) throw new ConflictException('Email already in use');
     }
     if (dto.username) {
       const existingUsername = await this.userRepository.findOne({
-        where: { username: dto.username },
+        where: [{ username: dto.username }, { email: dto.username }],
       });
       if (existingUsername)
         throw new ConflictException('Username already in use');
@@ -89,13 +92,13 @@ export class AccountsManagersService {
 
     if (dto.email && dto.email !== manager.email) {
       const existingEmail = await this.userRepository.findOne({
-        where: { email: dto.email },
+        where: [{ email: dto.email }, { username: dto.email }],
       });
       if (existingEmail) throw new ConflictException('Email already in use');
     }
     if (dto.username && dto.username !== manager.username) {
       const existingUsername = await this.userRepository.findOne({
-        where: { username: dto.username },
+        where: [{ username: dto.username }, { email: dto.username }],
       });
       if (existingUsername)
         throw new ConflictException('Username already in use');

@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsArray,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -24,8 +25,8 @@ export class CreateSiteEngineerDto {
   phone?: string;
 
   @ApiPropertyOptional()
+  @ValidateIf((o) => o.email !== undefined && o.email !== '')
   @IsEmail()
-  @IsOptional()
   email?: string;
 
   @ApiPropertyOptional()

@@ -6,6 +6,7 @@ import {
   IsArray,
   IsUUID,
   IsIn,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OfficeStaffType } from '../../common/enums.js';
@@ -30,8 +31,8 @@ export class CreateOfficeStaffDto {
   phone?: string;
 
   @ApiPropertyOptional({ example: 'john@company.com' })
+  @ValidateIf((o) => o.email !== undefined && o.email !== '')
   @IsEmail()
-  @IsOptional()
   email?: string;
 
   @ApiPropertyOptional({ example: 'Chennai' })
