@@ -21,6 +21,7 @@ import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcon
 import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
 import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
+import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
 import {
   SubcontractWorkOrderStatus,
   BillStatus,
@@ -56,6 +57,8 @@ export class ProjectsService {
     private invoicesRepo: Repository<SalesInvoice>,
     @InjectRepository(Payment) private paymentsRepo: Repository<Payment>,
     @InjectRepository(User) private usersRepo: Repository<User>,
+    @InjectRepository(WeeklyTimesheet)
+    private timesheetsRepo: Repository<WeeklyTimesheet>,
   ) {}
 
   async create(dto: CreateProjectDto, userId?: string): Promise<Project> {
@@ -193,8 +196,14 @@ export class ProjectsService {
   async getProjectDetails(id: string) {
     const project = await this.findOne(id);
 
-    const [expenses, subcontractWorkOrders, purchaseBills, invoices, payments] =
-      await Promise.all([
+    const [
+      expenses,
+      subcontractWorkOrders,
+      purchaseBills,
+      invoices,
+      payments,
+      approvedTimesheets,
+    ] = await Promise.all([
         this.expensesRepo.find({
           where: {
             projectId: id,
@@ -240,7 +249,66 @@ export class ProjectsService {
           ],
           order: { paymentDate: 'DESC' },
         }),
+        this.timesheetsRepo
+          .createQueryBuilder('ts')
+          .innerJoinAndSelect(
+            'ts.rows',
+            'row',
+            'row.projectId = :projectId',
+            { projectId: id },
+          )
+          .where('ts.isDeleted = false')
+          .andWhere('ts.status = :status', { status: 'approved' })
+          .getMany(),
       ]);
+
+    const siteEngineerIds = [
+      ...new Set(approvedTimesheets.map((t) => t.siteEngineerId)),
+    ];
+    const timesheetUsers = siteEngineerIds.length
+      ? await this.usersRepo.find({ where: { id: In(siteEngineerIds) } })
+      : [];
+    const timesheetUserMap = new Map(timesheetUsers.map((u) => [u.id, u]));
+
+    const timesheetSummaryMap = new Map<
+      string,
+      {
+        userId: string;
+        name: string;
+        role: string;
+        totalHours: number;
+        totalAmount: number;
+      }
+    >();
+    for (const ts of approvedTimesheets) {
+      const user = timesheetUserMap.get(ts.siteEngineerId);
+      for (const row of ts.rows) {
+        const hours =
+          Number(row.monHours) +
+          Number(row.tueHours) +
+          Number(row.wedHours) +
+          Number(row.thuHours) +
+          Number(row.friHours) +
+          Number(row.satHours) +
+          Number(row.sunHours);
+        const existing = timesheetSummaryMap.get(ts.siteEngineerId);
+        if (existing) {
+          existing.totalHours += hours;
+          existing.totalAmount += Number(row.amount || 0);
+        } else {
+          timesheetSummaryMap.set(ts.siteEngineerId, {
+            userId: ts.siteEngineerId,
+            name: user?.name || 'Unknown',
+            role: user?.role || '-',
+            totalHours: hours,
+            totalAmount: Number(row.amount || 0),
+          });
+        }
+      }
+    }
+    const timesheetSummary = Array.from(timesheetSummaryMap.values()).sort(
+      (a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name),
+    );
 
     return {
       project,
@@ -249,6 +317,7 @@ export class ProjectsService {
       purchaseBills,
       invoices,
       payments,
+      timesheetSummary,
     };
   }
 

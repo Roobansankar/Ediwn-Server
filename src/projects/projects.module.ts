@@ -20,6 +20,7 @@ import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { ProjectCategory } from '../project-categories/entities/project-category.entity.js';
+import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ProjectCategory } from '../project-categories/entities/project-category
       PurchaseBill,
       SalesInvoice,
       Payment,
+      WeeklyTimesheet,
     ]),
   ],
   controllers: [ProjectsController],
