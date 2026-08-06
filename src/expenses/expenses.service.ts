@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Expense } from './entities/expense.entity.js';
@@ -119,8 +123,11 @@ export class ExpensesService {
         dateTo,
       });
 
-    // Site engineers only see their own expenses
-    if (user && user.role === Role.SITE_ENGINEER) {
+    // Site engineers and office staff only see their own individual expenses
+    if (
+      user &&
+      (user.role === Role.SITE_ENGINEER || user.role === Role.OFFICE_STAFF)
+    ) {
       qb.andWhere('e.createdBy = :userId', { userId: user.id });
     }
 
@@ -143,8 +150,20 @@ export class ExpensesService {
   async update(
     id: string,
     dto: Partial<CreateExpenseDto>,
+    user?: { role: string },
     files?: Express.Multer.File[],
   ): Promise<Expense> {
+    if (
+      dto.status !== undefined &&
+      user &&
+      user.role !== Role.ADMIN &&
+      user.role !== Role.ACCOUNTS_MANAGER
+    ) {
+      throw new ForbiddenException(
+        'Only admin and accounts can update expense status',
+      );
+    }
+
     const expense = await this.findOne(id);
 
     // Handle new file uploads

@@ -126,9 +126,10 @@ export class ExpensesController {
   update(
     @Param('id') id: string,
     @Body() dto: Partial<CreateExpenseDto>,
+    @Request() req: any,
     @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    return this.expensesService.update(id, dto, files);
+    return this.expensesService.update(id, dto, req.user, files);
   }
 
   @Delete(':id')

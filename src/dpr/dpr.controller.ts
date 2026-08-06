@@ -36,7 +36,7 @@ export class DprController {
   constructor(private readonly dprService: DprService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.SITE_ENGINEER)
+  @Roles(Role.ADMIN, Role.SITE_ENGINEER, Role.OFFICE_STAFF)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
