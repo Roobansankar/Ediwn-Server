@@ -5,12 +5,14 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { Project } from '../../projects/entities/project.entity.js';
 import { Subcontractor } from '../../subcontractors/entities/subcontractor.entity.js';
 import { WorkCategory } from '../../work-categories/entities/work-category.entity.js';
 import { SubcontractWorkOrderStatus } from '../../common/enums.js';
+import { Payment } from '../../payments/entities/payment.entity.js';
 
 @Entity('subcontract_work_orders')
 export class SubcontractWorkOrder {
@@ -80,6 +82,9 @@ export class SubcontractWorkOrder {
 
   @Column({ default: false })
   isDeleted: boolean;
+
+  @OneToMany(() => Payment, (payment) => payment.subcontractWorkOrder)
+  payments: Payment[];
 
   @CreateDateColumn()
   createdAt: Date;

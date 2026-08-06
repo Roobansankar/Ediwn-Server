@@ -15,6 +15,7 @@ import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
 import { Expense } from '../expenses/entities/expense.entity.js';
 import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
+import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
 
 @Injectable()
 export class PaymentsService {
@@ -29,6 +30,7 @@ export class PaymentsService {
     return await this.dataSource.transaction(async (manager) => {
       let projectId = dto.projectId;
       let vendorId = dto.vendorId;
+      let payeeName = dto.payeeName;
 
       if (dto.purchaseBillId) {
         const bill = await manager.findOne(PurchaseBill, {
@@ -58,6 +60,17 @@ export class PaymentsService {
 
         if (!projectId) projectId = po.projectId;
         if (!vendorId) vendorId = po.vendorId;
+      }
+
+      if (dto.subcontractWorkOrderId) {
+        const swo = await manager.findOne(SubcontractWorkOrder, {
+          where: { id: dto.subcontractWorkOrderId },
+          relations: ['subcontractor'],
+        });
+        if (!swo) throw new NotFoundException('Subcontract Work Order not found');
+
+        if (!projectId) projectId = swo.projectId;
+        if (!payeeName) payeeName = swo.subcontractor?.name;
       }
 
       if (dto.salesInvoiceId) {
@@ -90,6 +103,7 @@ export class PaymentsService {
         ...dto,
         projectId,
         vendorId,
+        payeeName,
         createdBy: userId,
       });
 
@@ -101,18 +115,20 @@ export class PaymentsService {
     type?: PaymentType;
     projectId?: string;
     purchaseOrderId?: string;
+    subcontractWorkOrderId?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
     limit?: number;
   }) {
-    const { type, projectId, purchaseOrderId, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { type, projectId, purchaseOrderId, subcontractWorkOrderId, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const qb = this.paymentsRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.project', 'project')
       .leftJoinAndSelect('p.vendor', 'vendor')
       .leftJoinAndSelect('p.purchaseBill', 'purchaseBill')
       .leftJoinAndSelect('p.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('p.subcontractWorkOrder', 'subcontractWorkOrder')
       .leftJoinAndSelect('p.expense', 'expense')
       .leftJoinAndSelect('p.salesInvoice', 'salesInvoice')
       .leftJoinAndSelect('salesInvoice.project', 'invoiceProject')
@@ -124,6 +140,7 @@ export class PaymentsService {
     if (type) qb.andWhere('p.paymentType = :type', { type });
     if (projectId) qb.andWhere('p.projectId = :projectId', { projectId });
     if (purchaseOrderId) qb.andWhere('p.purchaseOrderId = :purchaseOrderId', { purchaseOrderId });
+    if (subcontractWorkOrderId) qb.andWhere('p.subcontractWorkOrderId = :subcontractWorkOrderId', { subcontractWorkOrderId });
     if (dateFrom && dateTo)
       qb.andWhere('p.paymentDate BETWEEN :dateFrom AND :dateTo', {
         dateFrom,

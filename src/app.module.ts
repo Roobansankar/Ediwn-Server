@@ -37,6 +37,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { MaterialReceivedModule } from './material-received/material-received.module.js';
 import { ProjectAccessModule } from './project-access/project-access.module.js';
 import { AdvanceRequestsModule } from './advance-requests/advance-requests.module.js';
+import { SubcontractorPaymentRequestsModule } from './subcontractor-payment-requests/subcontractor-payment-requests.module.js';
 
 // Entity imports
 import { User } from './users/entities/user.entity.js';
@@ -84,6 +85,7 @@ import { Notification } from './notifications/entities/notification.entity.js';
 import { MaterialReceived } from './material-received/entities/material-received.entity.js';
 import { ProjectAccess } from './project-access/entities/project-access.entity.js';
 import { AdvanceRequest } from './advance-requests/entities/advance-request.entity.js';
+import { SubcontractorPaymentRequest } from './subcontractor-payment-requests/entities/subcontractor-payment-request.entity.js';
 
 function getBooleanConfig(
   configService: ConfigService,
@@ -159,6 +161,7 @@ function getBooleanConfig(
           MaterialReceived,
           ProjectAccess,
           AdvanceRequest,
+          SubcontractorPaymentRequest,
         ],
         // Always false — schema changes go through src/migrations only.
         // synchronize:true would auto-alter (and can silently drop) columns
@@ -203,6 +206,7 @@ function getBooleanConfig(
     MaterialReceivedModule,
     ProjectAccessModule,
     AdvanceRequestsModule,
+    SubcontractorPaymentRequestsModule,
   ],
 })
 export class AppModule {}
