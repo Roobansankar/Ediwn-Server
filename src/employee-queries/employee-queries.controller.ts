@@ -31,7 +31,13 @@ export class EmployeeQueriesController {
   constructor(private readonly service: EmployeeQueriesService) {}
 
   @Post()
-  @Roles(Role.SITE_ENGINEER, Role.PURCHASE_TEAM, Role.ADMIN)
+  @Roles(
+    Role.SITE_ENGINEER,
+    Role.PURCHASE_TEAM,
+    Role.ACCOUNTS_MANAGER,
+    Role.OFFICE_STAFF,
+    Role.ADMIN,
+  )
   @ApiOperation({ summary: 'Request edit access for a locked timesheet' })
   create(@Body() dto: CreateEmployeeQueryDto, @Request() req: any) {
     return this.service.create(dto, req.user.id);
@@ -43,6 +49,7 @@ export class EmployeeQueriesController {
     Role.ACCOUNTS_MANAGER,
     Role.SITE_ENGINEER,
     Role.PURCHASE_TEAM,
+    Role.OFFICE_STAFF,
   )
   @ApiOperation({ summary: 'List edit requests (admin sees all)' })
   @ApiQuery({ name: 'status', required: false })
