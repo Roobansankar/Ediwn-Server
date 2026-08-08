@@ -56,10 +56,10 @@ export class VendorQuotationsService {
     await this.repo.save(quotation);
   }
 
-  async uploadFile(id: string, file: Express.Multer.File): Promise<VendorQuotation> {
+  async uploadFile(id: string, filename: string): Promise<VendorQuotation> {
     const quotation = await this.findOne(id);
-    quotation.quotationUrl = `/uploads/vendor-quotations/${file.filename}`;
-    quotation.quotationKey = file.filename;
+    quotation.quotationUrl = `/uploads/vendor-quotations/${filename}`;
+    quotation.quotationKey = filename;
     return this.repo.save(quotation);
   }
 }

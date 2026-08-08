@@ -3,9 +3,10 @@ import {
   UseGuards, UseInterceptors, UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import { compressImageToWebp, compressPdfBuffer } from '../common/utils/file-compression.util.js';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard.js';
@@ -33,17 +34,7 @@ export class VendorQuotationsController {
   @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @UseInterceptors(
     FileInterceptor('quotation', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/vendor-quotations';
-          if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `quotation-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
         const allowedMimes = [
@@ -63,9 +54,28 @@ export class VendorQuotationsController {
   )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload quotation bill file' })
-  uploadFile(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new Error('No file uploaded');
-    return this.service.uploadFile(id, file);
+
+    const uploadPath = './uploads/vendor-quotations';
+    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+
+    let filename: string;
+    if (file.mimetype.startsWith('image/')) {
+      filename = `quotation-${uniqueSuffix}.webp`;
+      const webpBuffer = await compressImageToWebp(file.buffer);
+      fs.writeFileSync(`${uploadPath}/${filename}`, webpBuffer);
+    } else if (file.mimetype === 'application/pdf') {
+      filename = `quotation-${uniqueSuffix}.pdf`;
+      const compressed = await compressPdfBuffer(file.buffer);
+      fs.writeFileSync(`${uploadPath}/${filename}`, compressed);
+    } else {
+      filename = `quotation-${uniqueSuffix}${extname(file.originalname)}`;
+      fs.writeFileSync(`${uploadPath}/${filename}`, file.buffer);
+    }
+
+    return this.service.uploadFile(id, filename);
   }
 
   @Get()

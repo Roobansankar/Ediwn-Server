@@ -19,9 +19,10 @@ import {
   ApiBearerAuth,
   ApiConsumes,
 } from '@nestjs/swagger';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import { compressImageToWebp, compressPdfBuffer } from '../common/utils/file-compression.util.js';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
@@ -80,32 +81,35 @@ export class PurchaseOrdersController {
   @Roles(Role.ADMIN, Role.PURCHASE_TEAM)
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/quotation-bill';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(
-            null,
-            `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`,
-          );
-        },
-      }),
+      storage: memoryStorage(),
     }),
   )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a quotation bill file' })
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new Error('File is required');
+
+    const uploadPath = './uploads/quotation-bill';
+    if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+
+    let filename: string;
+    if (file.mimetype.startsWith('image/')) {
+      filename = `${file.fieldname}-${uniqueSuffix}.webp`;
+      const webpBuffer = await compressImageToWebp(file.buffer);
+      fs.writeFileSync(`${uploadPath}/${filename}`, webpBuffer);
+    } else if (file.mimetype === 'application/pdf') {
+      filename = `${file.fieldname}-${uniqueSuffix}.pdf`;
+      const compressed = await compressPdfBuffer(file.buffer);
+      fs.writeFileSync(`${uploadPath}/${filename}`, compressed);
+    } else {
+      filename = `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`;
+      fs.writeFileSync(`${uploadPath}/${filename}`, file.buffer);
+    }
+
     return {
-      fileUrl: `/uploads/quotation-bill/${file.filename}`,
-      fileKey: file.filename,
+      fileUrl: `/uploads/quotation-bill/${filename}`,
+      fileKey: filename,
     };
   }
 

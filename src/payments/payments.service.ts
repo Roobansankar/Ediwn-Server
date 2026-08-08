@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Payment } from './entities/payment.entity.js';
@@ -16,6 +20,7 @@ import { Expense } from '../expenses/entities/expense.entity.js';
 import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
 import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
+import { AdvanceRequest } from '../advance-requests/entities/advance-request.entity.js';
 
 @Injectable()
 export class PaymentsService {
@@ -60,6 +65,21 @@ export class PaymentsService {
 
         if (!projectId) projectId = po.projectId;
         if (!vendorId) vendorId = po.vendorId;
+      }
+
+      if (dto.advanceRequestId) {
+        const advanceRequest = await manager.findOne(AdvanceRequest, {
+          where: { id: dto.advanceRequestId },
+        });
+        if (!advanceRequest)
+          throw new NotFoundException('Vendor payment request not found');
+        if (advanceRequest.status !== 'admin_approved')
+          throw new BadRequestException(
+            'This vendor payment request has not received final admin approval yet',
+          );
+
+        if (!projectId) projectId = advanceRequest.projectId;
+        if (!vendorId) vendorId = advanceRequest.vendorId;
       }
 
       if (dto.subcontractWorkOrderId) {
@@ -116,12 +136,13 @@ export class PaymentsService {
     projectId?: string;
     purchaseOrderId?: string;
     subcontractWorkOrderId?: string;
+    advanceRequestId?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
     limit?: number;
   }) {
-    const { type, projectId, purchaseOrderId, subcontractWorkOrderId, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { type, projectId, purchaseOrderId, subcontractWorkOrderId, advanceRequestId, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const qb = this.paymentsRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.project', 'project')
@@ -129,6 +150,7 @@ export class PaymentsService {
       .leftJoinAndSelect('p.purchaseBill', 'purchaseBill')
       .leftJoinAndSelect('p.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('p.subcontractWorkOrder', 'subcontractWorkOrder')
+      .leftJoinAndSelect('p.advanceRequest', 'advanceRequest')
       .leftJoinAndSelect('p.expense', 'expense')
       .leftJoinAndSelect('p.salesInvoice', 'salesInvoice')
       .leftJoinAndSelect('salesInvoice.project', 'invoiceProject')
@@ -141,6 +163,7 @@ export class PaymentsService {
     if (projectId) qb.andWhere('p.projectId = :projectId', { projectId });
     if (purchaseOrderId) qb.andWhere('p.purchaseOrderId = :purchaseOrderId', { purchaseOrderId });
     if (subcontractWorkOrderId) qb.andWhere('p.subcontractWorkOrderId = :subcontractWorkOrderId', { subcontractWorkOrderId });
+    if (advanceRequestId) qb.andWhere('p.advanceRequestId = :advanceRequestId', { advanceRequestId });
     if (dateFrom && dateTo)
       qb.andWhere('p.paymentDate BETWEEN :dateFrom AND :dateTo', {
         dateFrom,

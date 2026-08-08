@@ -113,6 +113,15 @@ export class AdvanceRequestsService {
         link: '/dashboard/advance-requests',
         entityId: request.id,
       });
+    } else if (dto.action === 'admin_approved') {
+      await this.notifications.createForRole(Role.ACCOUNTS_MANAGER, {
+        userId,
+        type: 'advance_request_admin_approved',
+        title: 'Vendor Payment Approved by Admin',
+        message: `A vendor payment of ${request.amount} received final admin approval and is ready to be paid.`,
+        link: '/dashboard/advance-requests',
+        entityId: request.id,
+      });
     }
 
     return this.repo.findOne({ where: { id } });

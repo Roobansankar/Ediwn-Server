@@ -40,6 +40,7 @@ export class PaymentsController {
   @ApiQuery({ name: 'projectId', required: false })
   @ApiQuery({ name: 'purchaseOrderId', required: false })
   @ApiQuery({ name: 'subcontractWorkOrderId', required: false })
+  @ApiQuery({ name: 'advanceRequestId', required: false })
   @ApiQuery({ name: 'dateFrom', required: false })
   @ApiQuery({ name: 'dateTo', required: false })
   findAll(
@@ -47,6 +48,7 @@ export class PaymentsController {
     @Query('projectId') projectId?: string,
     @Query('purchaseOrderId') purchaseOrderId?: string,
     @Query('subcontractWorkOrderId') subcontractWorkOrderId?: string,
+    @Query('advanceRequestId') advanceRequestId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('page') page?: number,
@@ -57,6 +59,7 @@ export class PaymentsController {
       projectId,
       purchaseOrderId,
       subcontractWorkOrderId,
+      advanceRequestId,
       dateFrom,
       dateTo,
       page,
