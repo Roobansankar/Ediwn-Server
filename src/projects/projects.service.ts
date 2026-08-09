@@ -74,7 +74,8 @@ export class ProjectsService {
       throw new ConflictException('Project code already in use');
 
     const { resourceIds, ...rest } = dto;
-    const project = this.projectsRepo.create({ ...rest, createdBy: userId });
+    const normalized = this.normalizeBudget(rest);
+    const project = this.projectsRepo.create({ ...normalized, createdBy: userId });
     if (resourceIds && resourceIds.length > 0) {
       project.resources = await this.usersRepo.findBy({ id: In(resourceIds) });
     }
@@ -119,8 +120,23 @@ export class ProjectsService {
           : [];
     }
 
-    Object.assign(project, { ...rest, updatedBy: userId });
+    Object.assign(project, {
+      ...this.normalizeBudget(rest),
+      updatedBy: userId,
+    });
     return this.projectsRepo.save(project);
+  }
+
+  // Keeps the budget fields consistent: estimatedBudget is the base amount,
+  // estimatedGst is the GST on it, and estimatedTotal is the base + GST.
+  private normalizeBudget(dto: Partial<CreateProjectDto>) {
+    const result: Partial<CreateProjectDto> = { ...dto };
+    const base = Number(dto.estimatedBudget || 0);
+    const gst = Number(dto.estimatedGst || 0);
+    if (dto.estimatedBudget !== undefined) result.estimatedBudget = base;
+    if (dto.estimatedGst !== undefined) result.estimatedGst = gst;
+    result.estimatedTotal = base + gst;
+    return result;
   }
 
   async remove(id: string): Promise<void> {

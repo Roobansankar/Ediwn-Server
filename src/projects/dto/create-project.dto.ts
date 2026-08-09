@@ -74,6 +74,16 @@ export class CreateProjectDto {
   estimatedBudget?: number;
 
   @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  estimatedGst?: number;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  estimatedTotal?: number;
+
+  @ApiPropertyOptional()
   @IsDateString()
   @IsOptional()
   startDate?: string;

@@ -25,11 +25,16 @@ export class InvoiceItemDto {
 export class CreateInvoiceDto {
   @ApiProperty() @IsUUID() projectId: string;
   @ApiPropertyOptional() @IsDateString() @IsOptional() dueDate?: string;
-  @ApiProperty({ type: [InvoiceItemDto] })
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  totalAmount?: number;
+  @ApiPropertyOptional({ type: [InvoiceItemDto] })
   @IsArray()
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => InvoiceItemDto)
-  items: InvoiceItemDto[];
+  items?: InvoiceItemDto[];
 }
 
 export class BillItemDto {

@@ -86,7 +86,7 @@ export class AccountsService {
     if (!project) throw new NotFoundException('Project not found');
 
     const invoiceNumber = await this.generateInvoiceNumber();
-    const items = dto.items.map((item) => {
+    const items = (dto.items || []).map((item) => {
       const amount = item.quantity * item.rate;
       return this.invoiceItemRepo.create({
         ...item,
@@ -94,12 +94,18 @@ export class AccountsService {
         amount,
       });
     });
-    const totalAmount = items.reduce(
-      (sum, item) => sum + Number(item.amount),
-      0,
-    );
+    // A directly entered invoice amount is the GST-INCLUSIVE total the client
+    // is billed. Split it into base + GST rather than adding GST on top again.
     const gstRate = 0.18;
-    const gstAmount = totalAmount * gstRate;
+    let totalAmount: number;
+    let gstAmount: number;
+    if (dto.totalAmount != null) {
+      totalAmount = Math.round((Number(dto.totalAmount) / (1 + gstRate)) * 100) / 100;
+      gstAmount = Math.round((Number(dto.totalAmount) - totalAmount) * 100) / 100;
+    } else {
+      totalAmount = items.reduce((sum, item) => sum + Number(item.amount), 0);
+      gstAmount = totalAmount * gstRate;
+    }
     const companyState = 'Tamil Nadu';
     let cgstAmount = 0,
       sgstAmount = 0,

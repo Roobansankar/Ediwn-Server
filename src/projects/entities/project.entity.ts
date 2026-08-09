@@ -88,6 +88,12 @@ export class Project {
   @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
   estimatedBudget: number;
 
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  estimatedGst: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  estimatedTotal: number;
+
   @Column({ type: 'date', nullable: true })
   startDate: Date;
 
