@@ -9,16 +9,22 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { OfficeStaffType } from '../../common/enums.js';
+import { OfficeStaffType, Role } from '../../common/enums.js';
 
 export class CreateOfficeStaffDto {
   @ApiProperty({ example: 'John Doe' })
   @IsString()
   name: string;
 
-  @ApiProperty({ enum: OfficeStaffType })
+  @ApiPropertyOptional({ enum: Role, default: Role.OFFICE_STAFF })
+  @IsIn(Object.values(Role))
+  @IsOptional()
+  role?: Role;
+
+  @ApiPropertyOptional({ enum: OfficeStaffType })
   @IsIn(Object.values(OfficeStaffType))
-  staffType: OfficeStaffType;
+  @IsOptional()
+  staffType?: OfficeStaffType;
 
   @ApiPropertyOptional({ example: 'EMP-101' })
   @IsString()
