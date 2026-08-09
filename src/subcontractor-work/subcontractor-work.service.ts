@@ -28,6 +28,7 @@ export class SubcontractorWorkService {
     const record = this.repo.create({
       projectId: dto.projectId,
       subcontractorId: dto.subcontractorId,
+      subcontractWorkOrderId: dto.subcontractWorkOrderId || null,
       notes: dto.notes,
       photoUrls: photoUrls.length ? photoUrls : undefined,
       photoKeys: photoKeys.length ? photoKeys : undefined,

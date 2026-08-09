@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MaterialReceivedController } from './material-received.controller.js';
 import { MaterialReceivedService } from './material-received.service.js';
 import { MaterialReceived } from './entities/material-received.entity.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([MaterialReceived])],
+  imports: [TypeOrmModule.forFeature([MaterialReceived]), NotificationsModule],
   controllers: [MaterialReceivedController],
   providers: [MaterialReceivedService],
   exports: [MaterialReceivedService],

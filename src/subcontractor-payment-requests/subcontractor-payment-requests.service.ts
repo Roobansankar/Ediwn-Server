@@ -112,6 +112,15 @@ export class SubcontractorPaymentRequestsService {
         link: '/dashboard/subcontractor-payment-requests',
         entityId: request.id,
       });
+    } else if (dto.action === 'admin_approved') {
+      await this.notifications.createForRole(Role.ACCOUNTS_MANAGER, {
+        userId,
+        type: 'subcontractor_payment_request_admin_approved',
+        title: 'Subcontractor Payment Approved by Admin',
+        message: `A subcontractor payment of ${request.amount} received final admin approval and is ready to be paid.`,
+        link: '/dashboard/subcontractor-payment-requests',
+        entityId: request.id,
+      });
     }
 
     return this.repo.findOne({ where: { id } });

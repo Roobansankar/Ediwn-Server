@@ -21,6 +21,22 @@ export class OfficeStaffService {
     private readonly projectRepository: Repository<Project>,
   ) {}
 
+  private async generateEmployeeId(): Promise<string> {
+    const staffList = await this.userRepository.find({
+      where: { role: Role.OFFICE_STAFF },
+      select: ['employeeId'],
+    });
+    let maxSeq = 100;
+    for (const s of staffList) {
+      const match = s.employeeId?.match(/^EMP-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSeq) maxSeq = num;
+      }
+    }
+    return `EMP-${maxSeq + 1}`;
+  }
+
   async create(dto: CreateOfficeStaffDto) {
     if (dto.email) {
       // Login looks a user up by `email = x OR username = x`, so a new
@@ -43,7 +59,7 @@ export class OfficeStaffService {
       name: dto.name,
       email: dto.email || `${dto.username || 'staff'}_${Date.now()}@temp.com`,
       username: dto.username,
-      employeeId: dto.employeeId,
+      employeeId: dto.employeeId || (await this.generateEmployeeId()),
       phone: dto.phone,
       address: dto.address,
       staffType: dto.staffType,

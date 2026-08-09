@@ -37,6 +37,11 @@ export class CreatePaymentDto {
   @ApiPropertyOptional()
   @IsUUID()
   @IsOptional()
+  subcontractorPaymentRequestId?: string;
+
+  @ApiPropertyOptional()
+  @IsUUID()
+  @IsOptional()
   salesInvoiceId?: string;
 
   @ApiPropertyOptional()

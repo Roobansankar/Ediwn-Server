@@ -45,6 +45,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        staffType: user.staffType,
         projects: user.projects?.map((p) => ({ id: p.id })) || [],
       },
     };
@@ -65,6 +66,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       role: user.role,
+      staffType: user.staffType,
       projects: user.projects?.map((p) => ({ id: p.id })) || [],
     };
   }

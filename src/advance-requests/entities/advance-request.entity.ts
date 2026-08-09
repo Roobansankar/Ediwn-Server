@@ -10,6 +10,7 @@ import {
 import { Vendor } from '../../vendors/entities/vendor.entity.js';
 import { Project } from '../../projects/entities/project.entity.js';
 import { VendorQuotation } from '../../vendor-quotations/entities/vendor-quotation.entity.js';
+import { PurchaseOrder } from '../../purchase-orders/entities/purchase-order.entity.js';
 
 @Entity('advance_requests')
 export class AdvanceRequest {
@@ -39,6 +40,13 @@ export class AdvanceRequest {
   @ManyToOne(() => VendorQuotation, { eager: true })
   @JoinColumn({ name: 'vendorQuotationId' })
   vendorQuotation: VendorQuotation | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  purchaseOrderId: string | null;
+
+  @ManyToOne(() => PurchaseOrder, { eager: true })
+  @JoinColumn({ name: 'purchaseOrderId' })
+  purchaseOrder: PurchaseOrder | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;

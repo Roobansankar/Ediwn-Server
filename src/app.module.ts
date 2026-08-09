@@ -19,6 +19,7 @@ import { SubcontractWorkOrdersModule } from './subcontract-work-orders/subcontra
 import { SiteEngineersModule } from './site-engineers/site-engineers.module.js';
 import { DailyLabourModule } from './daily-labour/daily-labour.module.js';
 import { TradesModule } from './trades/trades.module.js';
+import { TeamsModule } from './teams/teams.module.js';
 import { ExpenseTypesModule } from './expense-types/expense-types.module.js';
 import { AccountsManagersModule } from './accounts-managers/accounts-managers.module.js';
 import { PurchaseTeamModule } from './purchase-team/purchase-team.module.js';
@@ -88,6 +89,7 @@ import { ProjectAccess } from './project-access/entities/project-access.entity.j
 import { AdvanceRequest } from './advance-requests/entities/advance-request.entity.js';
 import { SubcontractorPaymentRequest } from './subcontractor-payment-requests/entities/subcontractor-payment-request.entity.js';
 import { SubcontractorWork } from './subcontractor-work/entities/subcontractor-work.entity.js';
+import { Team } from './teams/entities/team.entity.js';
 
 function getBooleanConfig(
   configService: ConfigService,
@@ -149,6 +151,7 @@ function getBooleanConfig(
           DailyLabourReport,
           DailyWorker,
           Trade,
+          Team,
           ExpenseType,
           ItemDescription,
           PurchaseEnquiry,
@@ -192,6 +195,7 @@ function getBooleanConfig(
     SiteEngineersModule,
     DailyLabourModule,
     TradesModule,
+    TeamsModule,
     ExpenseTypesModule,
     AccountsManagersModule,
     PurchaseTeamModule,

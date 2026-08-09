@@ -28,7 +28,7 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM, Role.OFFICE_STAFF)
   @ApiOperation({ summary: 'Create payment' })
   create(@Body() dto: CreatePaymentDto, @Request() req: any) {
     return this.paymentsService.create(dto, req.user.id);
@@ -41,6 +41,7 @@ export class PaymentsController {
   @ApiQuery({ name: 'purchaseOrderId', required: false })
   @ApiQuery({ name: 'subcontractWorkOrderId', required: false })
   @ApiQuery({ name: 'advanceRequestId', required: false })
+  @ApiQuery({ name: 'subcontractorPaymentRequestId', required: false })
   @ApiQuery({ name: 'dateFrom', required: false })
   @ApiQuery({ name: 'dateTo', required: false })
   findAll(
@@ -49,6 +50,7 @@ export class PaymentsController {
     @Query('purchaseOrderId') purchaseOrderId?: string,
     @Query('subcontractWorkOrderId') subcontractWorkOrderId?: string,
     @Query('advanceRequestId') advanceRequestId?: string,
+    @Query('subcontractorPaymentRequestId') subcontractorPaymentRequestId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('page') page?: number,
@@ -60,6 +62,7 @@ export class PaymentsController {
       purchaseOrderId,
       subcontractWorkOrderId,
       advanceRequestId,
+      subcontractorPaymentRequestId,
       dateFrom,
       dateTo,
       page,

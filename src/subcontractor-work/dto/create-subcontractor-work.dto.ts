@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional } from 'class-validator';
+import { IsString, IsUUID, IsOptional, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateSubcontractorWorkDto {
@@ -9,6 +9,11 @@ export class CreateSubcontractorWorkDto {
   @ApiProperty()
   @IsUUID()
   subcontractorId: string;
+
+  @ApiPropertyOptional()
+  @ValidateIf((o) => o.subcontractWorkOrderId !== undefined && o.subcontractWorkOrderId !== '')
+  @IsUUID()
+  subcontractWorkOrderId?: string;
 
   @ApiPropertyOptional()
   @IsString()

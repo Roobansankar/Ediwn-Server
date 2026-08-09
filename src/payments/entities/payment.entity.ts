@@ -15,6 +15,7 @@ import { SalesInvoice } from '../../accounts/entities/sales-invoice.entity.js';
 import { PurchaseOrder } from '../../purchase-orders/entities/purchase-order.entity.js';
 import { SubcontractWorkOrder } from '../../subcontract-work-orders/entities/subcontract-work-order.entity.js';
 import { AdvanceRequest } from '../../advance-requests/entities/advance-request.entity.js';
+import { SubcontractorPaymentRequest } from '../../subcontractor-payment-requests/entities/subcontractor-payment-request.entity.js';
 
 @Entity('payments')
 export class Payment {
@@ -51,6 +52,13 @@ export class Payment {
 
   @Column({ nullable: true })
   advanceRequestId: string;
+
+  @ManyToOne(() => SubcontractorPaymentRequest, { nullable: true })
+  @JoinColumn({ name: 'subcontractorPaymentRequestId' })
+  subcontractorPaymentRequest: SubcontractorPaymentRequest;
+
+  @Column({ nullable: true })
+  subcontractorPaymentRequestId: string;
 
   @ManyToOne(() => SalesInvoice, (invoice) => invoice.payments, {
     nullable: true,

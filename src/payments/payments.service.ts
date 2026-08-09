@@ -14,6 +14,7 @@ import {
   PaymentMode,
   InvoiceStatus,
   ExpenseStatus,
+  Role,
 } from '../common/enums.js';
 import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
 import { Expense } from '../expenses/entities/expense.entity.js';
@@ -21,6 +22,9 @@ import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
 import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
 import { AdvanceRequest } from '../advance-requests/entities/advance-request.entity.js';
+import { SubcontractorPaymentRequest } from '../subcontractor-payment-requests/entities/subcontractor-payment-request.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
 export class PaymentsService {
@@ -28,7 +32,9 @@ export class PaymentsService {
     @InjectRepository(Payment) private paymentsRepo: Repository<Payment>,
     @InjectRepository(PurchaseBill) private billRepo: Repository<PurchaseBill>,
     @InjectRepository(Expense) private expenseRepo: Repository<Expense>,
+    @InjectRepository(User) private userRepo: Repository<User>,
     private dataSource: DataSource,
+    private notifications: NotificationsService,
   ) {}
 
   async create(dto: CreatePaymentDto, userId?: string): Promise<Payment> {
@@ -93,6 +99,22 @@ export class PaymentsService {
         if (!payeeName) payeeName = swo.subcontractor?.name;
       }
 
+      if (dto.subcontractorPaymentRequestId) {
+        const request = await manager.findOne(SubcontractorPaymentRequest, {
+          where: { id: dto.subcontractorPaymentRequestId },
+          relations: ['subcontractor'],
+        });
+        if (!request)
+          throw new NotFoundException('Subcontractor payment request not found');
+        if (request.status !== 'admin_approved')
+          throw new BadRequestException(
+            'This subcontractor payment request has not received final admin approval yet',
+          );
+
+        if (!projectId) projectId = request.projectId;
+        if (!payeeName) payeeName = request.subcontractor?.name;
+      }
+
       if (dto.salesInvoiceId) {
         const invoice = await manager.findOne(SalesInvoice, {
           where: { id: dto.salesInvoiceId },
@@ -128,7 +150,46 @@ export class PaymentsService {
       });
 
       return await manager.save(payment);
+    }).then(async (payment) => {
+      if (!dto.salesInvoiceId && payment.projectId) {
+        await this.notifyPaymentRecorded(payment, userId);
+      }
+      return payment;
     });
+  }
+
+  private async notifyPaymentRecorded(payment: Payment, userId?: string) {
+    const context = payment.vendorId
+      ? ' for a vendor'
+      : payment.subcontractWorkOrderId || payment.subcontractorPaymentRequestId
+        ? ' for a subcontractor'
+        : '';
+    await this.notifications.createForRole(Role.PURCHASE_TEAM, {
+      userId,
+      type: 'payment_recorded',
+      title: 'Payment Recorded',
+      message: `A payment of ${payment.amount} was recorded${context}.`,
+      link: '/dashboard/payments',
+      entityId: payment.id,
+    });
+
+    const siteEngineers = await this.userRepo
+      .createQueryBuilder('u')
+      .innerJoin('u.projects', 'p', 'p.id = :projectId', { projectId: payment.projectId })
+      .where('u.role = :role', { role: Role.SITE_ENGINEER })
+      .andWhere('u.isActive = true')
+      .getMany();
+
+    for (const se of siteEngineers) {
+      await this.notifications.createForUser(se.id, {
+        userId,
+        type: 'payment_recorded',
+        title: 'Payment Recorded',
+        message: `A payment of ${payment.amount} was recorded for your project.`,
+        link: '/dashboard/material-requirement',
+        entityId: payment.id,
+      });
+    }
   }
 
   async findAll(query: {
@@ -137,12 +198,13 @@ export class PaymentsService {
     purchaseOrderId?: string;
     subcontractWorkOrderId?: string;
     advanceRequestId?: string;
+    subcontractorPaymentRequestId?: string;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
     limit?: number;
   }) {
-    const { type, projectId, purchaseOrderId, subcontractWorkOrderId, advanceRequestId, dateFrom, dateTo, page = 1, limit = 20 } = query;
+    const { type, projectId, purchaseOrderId, subcontractWorkOrderId, advanceRequestId, subcontractorPaymentRequestId, dateFrom, dateTo, page = 1, limit = 20 } = query;
     const qb = this.paymentsRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.project', 'project')
@@ -151,6 +213,7 @@ export class PaymentsService {
       .leftJoinAndSelect('p.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('p.subcontractWorkOrder', 'subcontractWorkOrder')
       .leftJoinAndSelect('p.advanceRequest', 'advanceRequest')
+      .leftJoinAndSelect('p.subcontractorPaymentRequest', 'subcontractorPaymentRequest')
       .leftJoinAndSelect('p.expense', 'expense')
       .leftJoinAndSelect('p.salesInvoice', 'salesInvoice')
       .leftJoinAndSelect('salesInvoice.project', 'invoiceProject')
@@ -164,6 +227,7 @@ export class PaymentsService {
     if (purchaseOrderId) qb.andWhere('p.purchaseOrderId = :purchaseOrderId', { purchaseOrderId });
     if (subcontractWorkOrderId) qb.andWhere('p.subcontractWorkOrderId = :subcontractWorkOrderId', { subcontractWorkOrderId });
     if (advanceRequestId) qb.andWhere('p.advanceRequestId = :advanceRequestId', { advanceRequestId });
+    if (subcontractorPaymentRequestId) qb.andWhere('p.subcontractorPaymentRequestId = :subcontractorPaymentRequestId', { subcontractorPaymentRequestId });
     if (dateFrom && dateTo)
       qb.andWhere('p.paymentDate BETWEEN :dateFrom AND :dateTo', {
         dateFrom,

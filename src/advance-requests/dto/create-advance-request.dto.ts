@@ -20,6 +20,11 @@ export class CreateAdvanceRequestDto {
   @IsOptional()
   vendorQuotationId?: string;
 
+  @ApiPropertyOptional({ example: 'uuid-of-purchase-order' })
+  @IsUUID()
+  @IsOptional()
+  purchaseOrderId?: string;
+
   @ApiProperty({ example: 25000 })
   @IsNumber()
   @Min(0.01)

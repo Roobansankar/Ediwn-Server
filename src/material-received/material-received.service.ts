@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { MaterialReceived } from './entities/material-received.entity.js';
 import { CreateMaterialReceivedDto } from './dto/create-material-received.dto.js';
 import { Role } from '../common/enums.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 type RequestUser = { id: string; role: string; name?: string };
 
@@ -12,6 +13,7 @@ export class MaterialReceivedService {
   constructor(
     @InjectRepository(MaterialReceived)
     private repo: Repository<MaterialReceived>,
+    private notifications: NotificationsService,
   ) {}
 
   private async generateMrNumber(): Promise<string> {
@@ -37,8 +39,8 @@ export class MaterialReceivedService {
     const entry = this.repo.create({
       mrNumber,
       projectId: dto.projectId,
-      purchaseOrderId: dto.purchaseOrderId,
-      receivedDate: dto.receivedDate,
+      purchaseOrderId: dto.purchaseOrderId || undefined,
+      receivedDate: dto.receivedDate || undefined,
       notes: dto.notes,
       items: dto.items || [],
       photoUrls: dto.photoUrls || [],
@@ -48,7 +50,20 @@ export class MaterialReceivedService {
       status: 'pending',
       createdBy: user?.id,
     });
-    return this.repo.save(entry);
+    const saved = await this.repo.save(entry);
+
+    if (user?.role === Role.SITE_ENGINEER) {
+      await this.notifications.createForRole(Role.PURCHASE_TEAM, {
+        userId: user.id,
+        type: 'material_received',
+        title: 'Material Received Entry Submitted',
+        message: `${user.name || 'A site engineer'} logged a material received entry (${mrNumber}).`,
+        link: '/dashboard/material-received',
+        entityId: saved.id,
+      });
+    }
+
+    return saved;
   }
 
   async findAll(user?: any) {
@@ -83,8 +98,8 @@ export class MaterialReceivedService {
     const entry = await this.findOne(id);
     Object.assign(entry, {
       projectId: dto.projectId ?? entry.projectId,
-      purchaseOrderId: dto.purchaseOrderId ?? entry.purchaseOrderId,
-      receivedDate: dto.receivedDate ?? entry.receivedDate,
+      purchaseOrderId: (dto.purchaseOrderId || undefined) ?? entry.purchaseOrderId,
+      receivedDate: (dto.receivedDate || undefined) ?? entry.receivedDate,
       notes: dto.notes ?? entry.notes,
       items: dto.items ?? entry.items,
       photoUrls: dto.photoUrls ?? entry.photoUrls,
