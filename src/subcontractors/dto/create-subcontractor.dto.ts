@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsOptional, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateSubcontractorDto {
@@ -27,8 +27,8 @@ export class CreateSubcontractorDto {
   phone?: string;
 
   @ApiProperty({ required: false })
+  @ValidateIf((o) => o.email !== '' && o.email != null)
   @IsEmail()
-  @IsOptional()
   email?: string;
 
   @ApiProperty({ required: false })

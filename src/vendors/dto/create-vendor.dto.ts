@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsEmail, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateVendorDto {
@@ -22,8 +22,8 @@ export class CreateVendorDto {
   state?: string;
 
   @ApiPropertyOptional()
+  @ValidateIf((o) => o.contactEmail !== '' && o.contactEmail != null)
   @IsEmail()
-  @IsOptional()
   contactEmail?: string;
 
   @ApiPropertyOptional()

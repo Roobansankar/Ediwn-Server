@@ -25,7 +25,7 @@ export class SubcontractorsController {
   constructor(private readonly subcontractorsService: SubcontractorsService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Create a new subcontractor' })
   create(@Body() dto: CreateSubcontractorDto) {
     return this.subcontractorsService.create(dto);
@@ -44,7 +44,7 @@ export class SubcontractorsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Update a subcontractor' })
   update(@Param('id') id: string, @Body() dto: UpdateSubcontractorDto) {
     return this.subcontractorsService.update(id, dto);
