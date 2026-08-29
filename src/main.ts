@@ -34,6 +34,12 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  // Set Cross-Origin-Resource-Policy for uploaded files so browsers don't ORB-block them
+  app.use('/uploads', (_req: any, res: any, next: any) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  });
+
   // Enable API versioning (URI-based)
   app.enableVersioning({
     type: VersioningType.URI,
