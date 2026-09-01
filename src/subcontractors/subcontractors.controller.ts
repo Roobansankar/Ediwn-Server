@@ -51,7 +51,7 @@ export class SubcontractorsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Delete a subcontractor' })
   remove(@Param('id') id: string) {
     return this.subcontractorsService.remove(id);
