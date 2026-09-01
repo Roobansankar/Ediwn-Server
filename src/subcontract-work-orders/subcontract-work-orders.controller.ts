@@ -135,7 +135,7 @@ export class SubcontractWorkOrdersController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Delete a subcontract work order' })
   remove(@Param('id') id: string) {
     return this.subcontractWorkOrdersService.remove(id);
