@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { Project } from '../projects/entities/project.entity.js';
 import { ProjectMilestone } from '../projects/entities/project-milestone.entity.js';
 import { AttendanceLog } from '../projects/entities/attendance-log.entity.js';
@@ -359,14 +359,19 @@ export class DashboardService {
       createdAt: m.createdAt,
     }));
 
-    // Timesheet statuses for current month
+    // Timesheet statuses for current month. A weekly timesheet counts as "this
+    // month" if its week overlaps the current month at all (weekStart is
+    // often in the previous month when the month doesn't start on a Monday),
+    // not just when the week's Monday itself falls on/after the 1st.
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     const monthTimesheets = await this.tsRepo.find({
       where: {
         siteEngineerId: userId,
         isDeleted: false,
-        weekStart: MoreThanOrEqual(startOfMonth),
+        weekEnd: MoreThanOrEqual(startOfMonth),
+        weekStart: LessThanOrEqual(endOfMonth),
       },
     });
     const tsApproved = monthTimesheets.filter((t) => t.status === 'approved').length;
