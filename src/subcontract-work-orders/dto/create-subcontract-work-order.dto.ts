@@ -9,10 +9,6 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateSubcontractWorkOrderDto {
   @ApiProperty()
-  @IsString()
-  woNumber: string;
-
-  @ApiProperty()
   @IsUUID()
   projectId: string;
 

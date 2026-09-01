@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,17 +20,24 @@ export class SubcontractWorkOrdersService {
     private readonly paymentRepo: Repository<Payment>,
   ) {}
 
-  async create(dto: CreateSubcontractWorkOrderDto) {
-    const existing = await this.repository.findOne({
-      where: { woNumber: dto.woNumber },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Work Order with number ${dto.woNumber} already exists`,
-      );
+  async generateWoNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const lastSwo = await this.repository
+      .createQueryBuilder('swo')
+      .where('swo.woNumber LIKE :prefix', { prefix: `SWO-${year}-%` })
+      .orderBy('swo.woNumber', 'DESC')
+      .getOne();
+    let seq = 1;
+    if (lastSwo) {
+      const parts = lastSwo.woNumber.split('-');
+      seq = parseInt(parts[2], 10) + 1;
     }
+    return `SWO-${year}-${String(seq).padStart(3, '0')}`;
+  }
 
-    const swo = this.repository.create(dto);
+  async create(dto: CreateSubcontractWorkOrderDto) {
+    const woNumber = await this.generateWoNumber();
+    const swo = this.repository.create({ ...dto, woNumber });
     swo.amount = Number(dto.amount || 0);
     swo.gstAmount = (swo.amount * Number(dto.gstPercentage || 0)) / 100;
     swo.totalAmount = swo.amount + swo.gstAmount;
