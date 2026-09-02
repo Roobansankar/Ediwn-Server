@@ -45,7 +45,7 @@ export class VendorsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Delete a vendor' })
   remove(@Param('id') id: string) {
     return this.vendorsService.remove(id);
