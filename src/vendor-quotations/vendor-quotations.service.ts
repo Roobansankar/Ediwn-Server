@@ -15,12 +15,18 @@ export class VendorQuotationsService {
 
   async create(dto: CreateVendorQuotationDto, groupId?: string): Promise<VendorQuotation> {
     if (!groupId) groupId = randomUUID();
+    const basicAmount = dto.totalAmount || 0;
+    const gstPercent = dto.gstPercent || 0;
+    const gstAmount = Number(((basicAmount * gstPercent) / 100).toFixed(2));
     const quotation = this.repo.create({
       groupId,
       projectId: dto.projectId,
       vendorId: dto.vendorId,
       items: dto.items,
       totalAmount: dto.totalAmount,
+      gstPercent: dto.gstPercent,
+      gstAmount,
+      totalWithGst: Number((basicAmount + gstAmount).toFixed(2)),
       materialRequirementId: dto.materialRequirementId,
       status: 'pending',
     });
@@ -47,6 +53,15 @@ export class VendorQuotationsService {
   async update(id: string, dto: UpdateVendorQuotationDto): Promise<VendorQuotation> {
     const quotation = await this.findOne(id);
     Object.assign(quotation, dto);
+
+    if (dto.totalAmount !== undefined || dto.gstPercent !== undefined) {
+      const basicAmount = Number(quotation.totalAmount) || 0;
+      const gstPercent = Number(quotation.gstPercent) || 0;
+      const gstAmount = Number(((basicAmount * gstPercent) / 100).toFixed(2));
+      quotation.gstAmount = gstAmount;
+      quotation.totalWithGst = Number((basicAmount + gstAmount).toFixed(2));
+    }
+
     return this.repo.save(quotation);
   }
 

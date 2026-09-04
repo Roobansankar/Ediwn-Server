@@ -39,6 +39,15 @@ export class VendorQuotation {
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   totalAmount: number | null;
 
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  gstPercent: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  gstAmount: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  totalWithGst: number | null;
+
   @Column({ nullable: true })
   quotationUrl: string;
 
