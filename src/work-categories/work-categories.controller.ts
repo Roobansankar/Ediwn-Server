@@ -23,7 +23,7 @@ export class WorkCategoriesController {
   constructor(private readonly workCategoriesService: WorkCategoriesService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Create a new work category' })
   create(@Body() dto: CreateWorkCategoryDto) {
     return this.workCategoriesService.create(dto);
