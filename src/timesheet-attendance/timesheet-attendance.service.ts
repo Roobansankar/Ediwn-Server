@@ -112,15 +112,15 @@ export class TimesheetAttendanceService {
     'sunHours',
   ] as const;
 
-  async update(id: string, dto: CreateTimesheetDto, userId: string) {
+  async update(id: string, dto: CreateTimesheetDto, userId: string, userRole?: string) {
     const ts = await this.findOne(id);
-    if (ts.siteEngineerId !== userId)
+    if (userRole !== 'admin' && ts.siteEngineerId !== userId)
       throw new ForbiddenException('Not your timesheet');
-    if (
+    if (userRole !== 'admin' && (
       ts.status === 'verified' ||
       ts.status === 'admin_approved' ||
       ts.status === 'approved'
-    )
+    ))
       throw new BadRequestException('Cannot edit verified/approved timesheet');
 
     if (dto.rows.length === 0)
@@ -165,15 +165,15 @@ export class TimesheetAttendanceService {
     return this.tsRepo.save(ts);
   }
 
-  async submit(id: string, userId: string) {
+  async submit(id: string, userId: string, userRole?: string) {
     const ts = await this.findOne(id);
-    if (ts.siteEngineerId !== userId)
+    if (userRole !== 'admin' && ts.siteEngineerId !== userId)
       throw new ForbiddenException('Not your timesheet');
-    if (
+    if (userRole !== 'admin' && (
       ts.status === 'verified' ||
       ts.status === 'admin_approved' ||
       ts.status === 'approved'
-    )
+    ))
       throw new BadRequestException('Timesheet already processed');
 
     for (const row of ts.rows) {
@@ -260,6 +260,14 @@ export class TimesheetAttendanceService {
     ts.status = 'approved';
     ts.approvedById = userId;
     ts.approvedAt = new Date();
+    return this.tsRepo.save(ts);
+  }
+
+  async resetStatus(id: string, userId: string) {
+    const ts = await this.findOne(id);
+    ts.status = 'pending';
+    ts.approvedById = null;
+    ts.approvedAt = null;
     return this.tsRepo.save(ts);
   }
 

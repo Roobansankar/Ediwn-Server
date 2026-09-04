@@ -78,14 +78,14 @@ export class TimesheetAttendanceController {
     @Body() dto: CreateTimesheetDto,
     @Request() req: any,
   ) {
-    return this.service.update(id, dto, req.user.id);
+    return this.service.update(id, dto, req.user.id, req.user.role);
   }
 
   @Patch(':id/submit')
   @Roles(Role.SITE_ENGINEER, Role.PURCHASE_TEAM, Role.ADMIN, Role.OFFICE_STAFF, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Submit timesheet & lock it for editing' })
   submit(@Param('id') id: string, @Request() req: any) {
-    return this.service.submit(id, req.user.id);
+    return this.service.submit(id, req.user.id, req.user.role);
   }
 
   @Patch(':id/verify')
@@ -100,6 +100,13 @@ export class TimesheetAttendanceController {
   @ApiOperation({ summary: 'Approve timesheet & create payment (admin)' })
   approve(@Param('id') id: string, @Request() req: any) {
     return this.service.approve(id, req.user);
+  }
+
+  @Patch(':id/reset-status')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Reset timesheet status to pending (admin)' })
+  resetStatus(@Param('id') id: string, @Request() req: any) {
+    return this.service.resetStatus(id, req.user.id);
   }
 
   @Patch(':id/reject')
