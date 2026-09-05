@@ -54,4 +54,11 @@ export class DashboardController {
   getEngineerReport(@Request() req: any) {
     return this.dashboardService.getEngineerReport(req.user);
   }
+
+  @Get('engineer/projects')
+  @Roles(Role.SITE_ENGINEER)
+  @ApiOperation({ summary: 'Get projects assigned to the current site engineer' })
+  getEngineerAssignedProjects(@Request() req: any) {
+    return this.dashboardService.getAssignedProjectsForUser(req.user.id);
+  }
 }

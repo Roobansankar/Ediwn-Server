@@ -38,7 +38,10 @@ export class DashboardService {
     private tsRepo: Repository<WeeklyTimesheet>,
   ) {}
 
-  async getPurchaseAssignedProjects(userId: string) {
+  // Shared by both the purchase-team and site-engineer "assigned projects"
+  // endpoints — the shape doesn't depend on role, only on the user's
+  // `projects` relation (many-to-many assignment).
+  async getAssignedProjectsForUser(userId: string) {
     const user = await this.usersRepo.findOne({
       where: { id: userId },
       relations: ['projects'],
@@ -53,6 +56,10 @@ export class DashboardService {
       location: p.location,
       clientName: p.clientName,
     }));
+  }
+
+  async getPurchaseAssignedProjects(userId: string) {
+    return this.getAssignedProjectsForUser(userId);
   }
 
   async getPurchaseDashboard(userId: string) {
