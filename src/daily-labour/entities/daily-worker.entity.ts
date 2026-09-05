@@ -82,4 +82,9 @@ export class DailyWorker {
 
   @Column({ type: 'varchar', default: 'pending' })
   status: string;
+
+  // Set by Accounts/Admin alongside a status change (mainly on reject) so
+  // the site engineer who submitted this trade entry sees why.
+  @Column({ type: 'text', nullable: true })
+  reviewRemarks: string | null;
 }

@@ -152,8 +152,16 @@ export class DailyLabourController {
     @Param('reportId') reportId: string,
     @Param('workerId') workerId: string,
     @Body('status') status: string,
+    @Body('remarks') remarks: string,
+    @Request() req: any,
   ) {
-    return this.dailyLabourService.updateWorkerStatus(reportId, workerId, status);
+    return this.dailyLabourService.updateWorkerStatus(
+      reportId,
+      workerId,
+      status,
+      remarks,
+      req.user.id,
+    );
   }
 
   @Delete(':id')

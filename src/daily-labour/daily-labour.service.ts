@@ -9,6 +9,7 @@ import { DailyLabourReport } from './entities/daily-labour-report.entity.js';
 import { DailyWorker } from './entities/daily-worker.entity.js';
 import { CreateDailyLabourReportDto } from './dto/create-daily-labour.dto.js';
 import { Role } from '../common/enums.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
 
@@ -41,6 +42,7 @@ export class DailyLabourService {
     private readonly reportRepo: Repository<DailyLabourReport>,
     @InjectRepository(DailyWorker)
     private readonly workerRepo: Repository<DailyWorker>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(
@@ -118,7 +120,13 @@ export class DailyLabourService {
     return this.reportRepo.save(report);
   }
 
-  async updateWorkerStatus(reportId: string, workerId: string, status: string) {
+  async updateWorkerStatus(
+    reportId: string,
+    workerId: string,
+    status: string,
+    remarks?: string,
+    actorUserId?: string,
+  ) {
     const validStatuses = ['pending', 'approved', 'rejected'];
     if (!validStatuses.includes(status)) {
       throw new BadRequestException(
@@ -134,6 +142,11 @@ export class DailyLabourService {
       );
     }
     worker.status = status;
+    // Only overwrite the stored remark when one was actually sent, so a
+    // plain re-approve doesn't silently wipe out a prior rejection reason.
+    if (remarks !== undefined) {
+      worker.reviewRemarks = remarks || null;
+    }
     await this.workerRepo.save(worker);
 
     // Report-level status is derived from the trade (worker) statuses set by
@@ -146,6 +159,22 @@ export class DailyLabourService {
     if (report) {
       report.status = this.computeReportStatus(report.workers);
       await this.reportRepo.save(report);
+
+      // Let the site engineer who submitted this entry know which specific
+      // trade was approved/rejected, and why (when a remark was given).
+      if (report.createdById && (status === 'approved' || status === 'rejected')) {
+        await this.notifications.createForUser(report.createdById, {
+          userId: actorUserId,
+          type: 'daily_labour_worker_status',
+          title: status === 'rejected' ? 'Trade Entry Rejected' : 'Trade Entry Approved',
+          message:
+            status === 'rejected'
+              ? `${worker.trade} entry was rejected${remarks ? ` — ${remarks}` : ''}`
+              : `${worker.trade} entry was approved`,
+          link: `/dashboard/daily-labour/${reportId}`,
+          entityId: workerId,
+        });
+      }
     }
 
     return worker;
