@@ -97,6 +97,7 @@ export class ExpensesService {
       dateTo?: string;
       page?: number;
       limit?: number;
+      mine?: boolean;
     },
     user?: any,
   ) {
@@ -107,6 +108,7 @@ export class ExpensesService {
       dateTo,
       page = 1,
       limit = 20,
+      mine,
     } = query;
     const qb = this.expensesRepo
       .createQueryBuilder('e')
@@ -123,10 +125,14 @@ export class ExpensesService {
         dateTo,
       });
 
-    // Site engineers and office staff only see their own individual expenses
+    // Site engineers and office staff only ever see their own individual
+    // expenses. Admin/accounts see everyone's by default (the Expenses
+    // oversight page relies on that) — but the personal "My Expense" page
+    // explicitly asks for `mine=true` to narrow the same endpoint down to
+    // just the current user's own entries, same as everyone else gets.
     if (
       user &&
-      (user.role === Role.SITE_ENGINEER || user.role === Role.OFFICE_STAFF)
+      (mine || user.role === Role.SITE_ENGINEER || user.role === Role.OFFICE_STAFF)
     ) {
       qb.andWhere('e.createdBy = :userId', { userId: user.id });
     }

@@ -73,6 +73,11 @@ export class ExpensesController {
   @ApiQuery({ name: 'projectId', required: false })
   @ApiQuery({ name: 'dateFrom', required: false })
   @ApiQuery({ name: 'dateTo', required: false })
+  @ApiQuery({
+    name: 'mine',
+    required: false,
+    description: 'Only the current user\'s own expenses (used by the personal "My Expense" page, regardless of role)',
+  })
   findAll(
     @Query('category') category: ExpenseCategory,
     @Query('projectId') projectId: string,
@@ -80,10 +85,11 @@ export class ExpensesController {
     @Query('dateTo') dateTo: string,
     @Query('page') page: number,
     @Query('limit') limit: number,
+    @Query('mine') mine: string,
     @Request() req: any,
   ) {
     return this.expensesService.findAll(
-      { category, projectId, dateFrom, dateTo, page, limit },
+      { category, projectId, dateFrom, dateTo, page, limit, mine: mine === 'true' },
       req.user,
     );
   }
