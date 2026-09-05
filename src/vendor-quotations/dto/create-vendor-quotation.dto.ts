@@ -27,6 +27,7 @@ export class CreateVendorQuotationDto {
   items: QuotationItemDto[];
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() totalAmount?: number;
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() gstPercent?: number;
+  @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() transportAmount?: number;
   @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
   @ApiPropertyOptional() @IsUUID() @IsOptional() groupId?: string;
 }

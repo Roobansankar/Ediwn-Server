@@ -59,7 +59,8 @@ export class PurchaseOrdersService {
     );
     const gstPercent = dto.gstPercent || 0;
     const gstAmount = Number((basicAmount * gstPercent / 100).toFixed(2));
-    const totalWithGst = Number((basicAmount + gstAmount).toFixed(2));
+    const transportAmount = dto.transportAmount || 0;
+    const totalWithGst = Number((basicAmount + gstAmount + transportAmount).toFixed(2));
     const po = this.poRepo.create({
       poNumber,
       vendorId: dto.vendorId,
@@ -70,6 +71,7 @@ export class PurchaseOrdersService {
       totalAmount: basicAmount,
       gstPercent,
       gstAmount,
+      transportAmount,
       totalWithGst,
       items,
       createdBy: userId,
@@ -196,9 +198,11 @@ export class PurchaseOrdersService {
     );
     const gstPercent = Number(po.gstPercent) || 0;
     const gstAmount = Number((basicAmount * gstPercent / 100).toFixed(2));
+    const transportAmount = Number(po.transportAmount) || 0;
     po.totalAmount = basicAmount;
     po.gstAmount = gstAmount;
-    po.totalWithGst = Number((basicAmount + gstAmount).toFixed(2));
+    po.transportAmount = transportAmount;
+    po.totalWithGst = Number((basicAmount + gstAmount + transportAmount).toFixed(2));
 
     return this.poRepo.save(po);
   }

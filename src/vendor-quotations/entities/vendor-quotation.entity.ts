@@ -48,6 +48,9 @@ export class VendorQuotation {
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   totalWithGst: number | null;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  transportAmount: number | null;
+
   @Column({ nullable: true })
   quotationUrl: string;
 

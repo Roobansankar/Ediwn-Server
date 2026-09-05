@@ -27,6 +27,7 @@ export class CreatePurchaseOrderDto {
   @ApiPropertyOptional() @IsString() @IsOptional() billFileUrl?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() billFileKey?: string;
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() gstPercent?: number;
+  @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() transportAmount?: number;
   @ApiProperty({ type: [PoItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

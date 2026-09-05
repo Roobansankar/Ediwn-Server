@@ -18,6 +18,7 @@ export class VendorQuotationsService {
     const basicAmount = dto.totalAmount || 0;
     const gstPercent = dto.gstPercent || 0;
     const gstAmount = Number(((basicAmount * gstPercent) / 100).toFixed(2));
+    const transportAmount = dto.transportAmount || 0;
     const quotation = this.repo.create({
       groupId,
       projectId: dto.projectId,
@@ -26,7 +27,8 @@ export class VendorQuotationsService {
       totalAmount: dto.totalAmount,
       gstPercent: dto.gstPercent,
       gstAmount,
-      totalWithGst: Number((basicAmount + gstAmount).toFixed(2)),
+      transportAmount: dto.transportAmount,
+      totalWithGst: Number((basicAmount + gstAmount + transportAmount).toFixed(2)),
       materialRequirementId: dto.materialRequirementId,
       status: 'pending',
     });
@@ -54,12 +56,13 @@ export class VendorQuotationsService {
     const quotation = await this.findOne(id);
     Object.assign(quotation, dto);
 
-    if (dto.totalAmount !== undefined || dto.gstPercent !== undefined) {
+    if (dto.totalAmount !== undefined || dto.gstPercent !== undefined || dto.transportAmount !== undefined) {
       const basicAmount = Number(quotation.totalAmount) || 0;
       const gstPercent = Number(quotation.gstPercent) || 0;
       const gstAmount = Number(((basicAmount * gstPercent) / 100).toFixed(2));
+      const transportAmount = Number(quotation.transportAmount) || 0;
       quotation.gstAmount = gstAmount;
-      quotation.totalWithGst = Number((basicAmount + gstAmount).toFixed(2));
+      quotation.totalWithGst = Number((basicAmount + gstAmount + transportAmount).toFixed(2));
     }
 
     return this.repo.save(quotation);

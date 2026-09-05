@@ -54,6 +54,9 @@ export class PurchaseOrder {
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   totalWithGst: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  transportAmount: number;
+
   @Column({ nullable: true })
   billFileUrl: string;
 
