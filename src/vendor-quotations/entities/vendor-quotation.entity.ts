@@ -34,7 +34,7 @@ export class VendorQuotation {
   vendorId: string;
 
   @Column({ type: 'jsonb', default: [] })
-  items: { description: string; quantity: number }[];
+  items: { description: string; quantity: number; rate?: number }[];
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   totalAmount: number | null;

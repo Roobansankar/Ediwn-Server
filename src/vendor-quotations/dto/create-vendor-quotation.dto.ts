@@ -13,6 +13,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class QuotationItemDto {
   @ApiProperty() @IsString() description: string;
   @ApiProperty() @IsNumber() @Min(1) quantity: number;
+  @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() rate?: number;
 }
 
 export class CreateVendorQuotationDto {
