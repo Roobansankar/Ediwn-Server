@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { DailyLabourReport } from './daily-labour-report.entity.js';
 import { Trade } from '../../trades/entities/trade.entity.js';
+import { LabourPayment } from '../../labour-payments/entities/labour-payment.entity.js';
 
 @Entity('daily_workers')
 export class DailyWorker {
@@ -87,4 +88,13 @@ export class DailyWorker {
   // the site engineer who submitted this trade entry sees why.
   @Column({ type: 'text', nullable: true })
   reviewRemarks: string | null;
+
+  // Set once this trade entry is attached to a weekly LabourPayment record,
+  // so it can't be included in a second payment run.
+  @ManyToOne(() => LabourPayment, { nullable: true })
+  @JoinColumn({ name: 'labourPaymentId' })
+  labourPayment: LabourPayment | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  labourPaymentId: string | null;
 }
