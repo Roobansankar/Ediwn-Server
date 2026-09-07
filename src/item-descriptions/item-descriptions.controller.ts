@@ -27,7 +27,7 @@ export class ItemDescriptionsController {
   ) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM, Role.SITE_ENGINEER)
   @ApiOperation({ summary: 'Create a new item description' })
   create(@Body() dto: CreateItemDescriptionDto) {
     return this.itemDescriptionsService.create(dto);
