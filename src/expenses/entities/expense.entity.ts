@@ -11,6 +11,7 @@ import { Project } from '../../projects/entities/project.entity.js';
 import { Trade } from '../../trades/entities/trade.entity.js';
 import { User } from '../../users/entities/user.entity.js';
 import { ExpenseType } from '../../expense-types/entities/expense-type.entity.js';
+import { ExpensePayment } from '../../expense-payments/entities/expense-payment.entity.js';
 
 @Entity('expenses')
 export class Expense {
@@ -86,6 +87,18 @@ export class Expense {
 
   @Column({ nullable: true })
   createdBy: string;
+
+  // Set once this expense is attached to a weekly ExpensePayment record, so
+  // it can't be included in a second payment run. The payment itself starts
+  // out 'pending' and only becomes 'paid' once accounts actually pays it —
+  // that's the point at which this expense should count toward its
+  // project's spend (see ProjectsService.getProjectDetails).
+  @ManyToOne(() => ExpensePayment, { nullable: true })
+  @JoinColumn({ name: 'expensePaymentId' })
+  expensePayment: ExpensePayment | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  expensePaymentId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

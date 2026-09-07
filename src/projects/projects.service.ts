@@ -75,7 +75,10 @@ export class ProjectsService {
 
     const { resourceIds, ...rest } = dto;
     const normalized = this.normalizeBudget(rest);
-    const project = this.projectsRepo.create({ ...normalized, createdBy: userId });
+    const project = this.projectsRepo.create({
+      ...normalized,
+      createdBy: userId,
+    });
     if (resourceIds && resourceIds.length > 0) {
       project.resources = await this.usersRepo.findBy({ id: In(resourceIds) });
     }
@@ -226,67 +229,75 @@ export class ProjectsService {
       approvedTimesheets,
       approvedDailyLabourReports,
     ] = await Promise.all([
-        this.expensesRepo.find({
-          where: {
-            projectId: id,
-            isDeleted: false,
-            status: ExpenseStatus.ADMIN_APPROVED,
-          },
-          relations: ['project', 'trade', 'expenseType', 'creator'],
-          order: { expenseDate: 'DESC' },
-        }),
-        this.swoRepo.find({
-          where: {
-            projectId: id,
-            isDeleted: false,
-            status: SubcontractWorkOrderStatus.ADMIN_APPROVED,
-          },
-          relations: ['project', 'subcontractor', 'workCategory'],
-          order: { createdAt: 'DESC' },
-        }),
-        this.billsRepo.find({
-          where: {
-            projectId: id,
-            isDeleted: false,
-            status: BillStatus.ADMIN_APPROVED,
-          },
-          relations: ['vendor', 'project'],
-          order: { createdAt: 'DESC' },
-        }),
-        this.invoicesRepo.find({
-          where: { projectId: id, isDeleted: false },
-          relations: ['project', 'items', 'payments'],
-          order: { createdAt: 'DESC' },
-        }),
-        this.paymentsRepo.find({
-          where: { projectId: id, isDeleted: false },
-          relations: [
-            'project',
-            'vendor',
-            'purchaseBill',
-            'purchaseOrder',
-            'subcontractWorkOrder',
-            'expense',
-            'salesInvoice',
-          ],
-          order: { paymentDate: 'DESC' },
-        }),
-        this.timesheetsRepo
-          .createQueryBuilder('ts')
-          .innerJoinAndSelect(
-            'ts.rows',
-            'row',
-            'row.projectId = :projectId',
-            { projectId: id },
-          )
-          .where('ts.isDeleted = false')
-          .andWhere('ts.status = :status', { status: 'approved' })
-          .getMany(),
-        this.dailyLabourRepo.find({
-          where: { projectId: id, isDeleted: false, status: 'approved' },
-          order: { reportDate: 'DESC' },
-        }),
-      ]);
+      // Admin-approved isn't enough on its own anymore — an expense only
+      // counts toward the project's spend once accounts has actually paid
+      // it (a weekly ExpensePayment marked 'paid'), not just when it's
+      // approved and sitting in the payment queue.
+      this.expensesRepo
+        .createQueryBuilder('e')
+        .leftJoinAndSelect('e.project', 'project')
+        .leftJoinAndSelect('e.trade', 'trade')
+        .leftJoinAndSelect('e.expenseType', 'expenseType')
+        .leftJoinAndSelect('e.creator', 'creator')
+        .innerJoin('e.expensePayment', 'ep', 'ep.status = :paidStatus', {
+          paidStatus: 'paid',
+        })
+        .where('e.projectId = :projectId', { projectId: id })
+        .andWhere('e.isDeleted = false')
+        .andWhere('e.status = :status', {
+          status: ExpenseStatus.ADMIN_APPROVED,
+        })
+        .orderBy('e.expenseDate', 'DESC')
+        .getMany(),
+      this.swoRepo.find({
+        where: {
+          projectId: id,
+          isDeleted: false,
+          status: SubcontractWorkOrderStatus.ADMIN_APPROVED,
+        },
+        relations: ['project', 'subcontractor', 'workCategory'],
+        order: { createdAt: 'DESC' },
+      }),
+      this.billsRepo.find({
+        where: {
+          projectId: id,
+          isDeleted: false,
+          status: BillStatus.ADMIN_APPROVED,
+        },
+        relations: ['vendor', 'project'],
+        order: { createdAt: 'DESC' },
+      }),
+      this.invoicesRepo.find({
+        where: { projectId: id, isDeleted: false },
+        relations: ['project', 'items', 'payments'],
+        order: { createdAt: 'DESC' },
+      }),
+      this.paymentsRepo.find({
+        where: { projectId: id, isDeleted: false },
+        relations: [
+          'project',
+          'vendor',
+          'purchaseBill',
+          'purchaseOrder',
+          'subcontractWorkOrder',
+          'expense',
+          'salesInvoice',
+        ],
+        order: { paymentDate: 'DESC' },
+      }),
+      this.timesheetsRepo
+        .createQueryBuilder('ts')
+        .innerJoinAndSelect('ts.rows', 'row', 'row.projectId = :projectId', {
+          projectId: id,
+        })
+        .where('ts.isDeleted = false')
+        .andWhere('ts.status = :status', { status: 'approved' })
+        .getMany(),
+      this.dailyLabourRepo.find({
+        where: { projectId: id, isDeleted: false, status: 'approved' },
+        order: { reportDate: 'DESC' },
+      }),
+    ]);
 
     const siteEngineerIds = [
       ...new Set(approvedTimesheets.map((t) => t.siteEngineerId)),

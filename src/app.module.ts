@@ -11,6 +11,7 @@ import { DrawingsModule } from './drawings/drawings.module.js';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
+import { ExpensePaymentsModule } from './expense-payments/expense-payments.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module.js';
@@ -67,6 +68,7 @@ import { BillItem } from './accounts/entities/bill-item.entity.js';
 import { BoqItem } from './accounts/entities/boq-item.entity.js';
 import { Advance } from './accounts/entities/advance.entity.js';
 import { Expense } from './expenses/entities/expense.entity.js';
+import { ExpensePayment } from './expense-payments/entities/expense-payment.entity.js';
 import { ExpenseType } from './expense-types/entities/expense-type.entity.js';
 import { Payment } from './payments/entities/payment.entity.js';
 import { Subcontractor } from './subcontractors/entities/subcontractor.entity.js';
@@ -144,6 +146,7 @@ function getBooleanConfig(
           BoqItem,
           Advance,
           Expense,
+          ExpensePayment,
           Payment,
           Subcontractor,
           WorkCategory,
@@ -187,6 +190,7 @@ function getBooleanConfig(
     PurchaseOrdersModule,
     AccountsModule,
     ExpensesModule,
+    ExpensePaymentsModule,
     PaymentsModule,
     DashboardModule,
     SubcontractorsModule,
