@@ -37,7 +37,7 @@ export class PurchaseEnquiry {
   notes: string;
 
   @Column({ type: 'jsonb', default: [] })
-  items: { description: string; quantity: number }[];
+  items: { description: string; quantity: number; unit?: string }[];
 
   @Column({ type: 'varchar', length: 50, default: 'draft' })
   status: string;

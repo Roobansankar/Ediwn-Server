@@ -13,6 +13,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class EnquiryItemDto {
   @ApiProperty() @IsString() description: string;
   @ApiProperty() @IsNumber() @Min(1) quantity: number;
+  @ApiPropertyOptional() @IsString() @IsOptional() unit?: string;
 }
 
 export class CreatePurchaseEnquiryDto {
