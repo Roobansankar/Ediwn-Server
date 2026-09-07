@@ -26,4 +26,5 @@ export class CreateExpenseDto {
   @IsEnum(ExpenseStatus)
   @IsOptional()
   status?: ExpenseStatus;
+  @ApiPropertyOptional() @IsString() @IsOptional() rejectionReason?: string;
 }

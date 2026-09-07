@@ -9,11 +9,13 @@ import { Expense } from './entities/expense.entity.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
 import {
   ExpenseCategory,
+  ExpenseStatus,
   PaymentType,
   PaymentMode,
   Role,
 } from '../common/enums.js';
 import { Payment } from '../payments/entities/payment.entity.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
 export class ExpensesService {
@@ -21,6 +23,7 @@ export class ExpensesService {
     @InjectRepository(Expense) private expensesRepo: Repository<Expense>,
     @InjectRepository(Payment) private paymentsRepo: Repository<Payment>,
     private dataSource: DataSource,
+    private notifications: NotificationsService,
   ) {}
 
   async create(
@@ -132,7 +135,9 @@ export class ExpensesService {
     // just the current user's own entries, same as everyone else gets.
     if (
       user &&
-      (mine || user.role === Role.SITE_ENGINEER || user.role === Role.OFFICE_STAFF)
+      (mine ||
+        user.role === Role.SITE_ENGINEER ||
+        user.role === Role.OFFICE_STAFF)
     ) {
       qb.andWhere('e.createdBy = :userId', { userId: user.id });
     }
@@ -156,7 +161,7 @@ export class ExpensesService {
   async update(
     id: string,
     dto: Partial<CreateExpenseDto>,
-    user?: { role: string },
+    user?: { id: string; role: string },
     files?: Express.Multer.File[],
   ): Promise<Expense> {
     if (dto.status !== undefined && user) {
@@ -165,10 +170,11 @@ export class ExpensesService {
           'Only admin and accounts can update expense status',
         );
       }
-      if (user.role === Role.ACCOUNTS_MANAGER && dto.status === 'admin_approved') {
-        throw new ForbiddenException(
-          'Only admin can give final approval',
-        );
+      if (
+        user.role === Role.ACCOUNTS_MANAGER &&
+        dto.status === 'admin_approved'
+      ) {
+        throw new ForbiddenException('Only admin can give final approval');
       }
     }
 
@@ -254,8 +260,46 @@ export class ExpensesService {
       await this.paymentsRepo.update({ expenseId: id }, { isDeleted: true });
     }
 
+    // Only overwrite the stored reason when one was actually sent, so a
+    // plain re-approve doesn't silently wipe out a prior rejection reason -
+    // but do clear it once the expense moves off 'rejected' without a fresh
+    // reason, so a stale one doesn't linger after the issue is resolved.
+    if (
+      dto.status !== undefined &&
+      dto.status !== ExpenseStatus.REJECTED &&
+      dto.rejectionReason === undefined
+    ) {
+      expense.rejectionReason = null;
+    }
+
     Object.assign(expense, dto);
-    return this.expensesRepo.save(expense);
+    const saved = await this.expensesRepo.save(expense);
+
+    // Let the person who submitted this expense know it was approved or
+    // rejected, and why (when a reason was given).
+    if (
+      dto.status !== undefined &&
+      expense.createdBy &&
+      [
+        ExpenseStatus.APPROVED,
+        ExpenseStatus.ADMIN_APPROVED,
+        ExpenseStatus.REJECTED,
+      ].includes(dto.status)
+    ) {
+      const rejected = dto.status === ExpenseStatus.REJECTED;
+      await this.notifications.createForUser(expense.createdBy, {
+        userId: user?.id,
+        type: 'expense_status',
+        title: rejected ? 'Expense Rejected' : 'Expense Approved',
+        message: rejected
+          ? `Your expense "${expense.description}" (${expense.amount}) was rejected${dto.rejectionReason ? ` — ${dto.rejectionReason}` : ''}`
+          : `Your expense "${expense.description}" (${expense.amount}) was approved`,
+        link: '/dashboard/expenses',
+        entityId: expense.id,
+      });
+    }
+
+    return saved;
   }
 
   async softDelete(id: string): Promise<void> {

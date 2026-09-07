@@ -88,6 +88,11 @@ export class Expense {
   @Column({ nullable: true })
   createdBy: string;
 
+  // Set by accounts/admin alongside a status change (mainly on reject) so
+  // the person who submitted this expense sees why.
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string | null;
+
   // Set once this expense is attached to a weekly ExpensePayment record, so
   // it can't be included in a second payment run. The payment itself starts
   // out 'pending' and only becomes 'paid' once accounts actually pays it —
