@@ -212,6 +212,7 @@ export class PaymentsService {
       .leftJoinAndSelect('p.purchaseBill', 'purchaseBill')
       .leftJoinAndSelect('p.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('p.subcontractWorkOrder', 'subcontractWorkOrder')
+      .leftJoinAndSelect('subcontractWorkOrder.subcontractor', 'swoSubcontractor')
       .leftJoinAndSelect('p.advanceRequest', 'advanceRequest')
       .leftJoinAndSelect('p.subcontractorPaymentRequest', 'subcontractorPaymentRequest')
       .leftJoinAndSelect('p.expense', 'expense')

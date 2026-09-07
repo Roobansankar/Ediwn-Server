@@ -22,16 +22,19 @@ export class SubcontractWorkOrdersService {
 
   async generateWoNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const lastSwo = await this.repository
+    // Compare the sequence as a number, not as text - a plain string ORDER
+    // BY would put "SWO-2026-1000" before "SWO-2026-999" (it sorts '1'
+    // before '9'), picking the wrong "last" WO once a year passes 999 and
+    // risking a duplicate number.
+    const result = await this.repository
       .createQueryBuilder('swo')
+      .select(
+        `MAX(CAST(SPLIT_PART(swo."woNumber", '-', 3) AS INTEGER))`,
+        'maxSeq',
+      )
       .where('swo.woNumber LIKE :prefix', { prefix: `SWO-${year}-%` })
-      .orderBy('swo.woNumber', 'DESC')
-      .getOne();
-    let seq = 1;
-    if (lastSwo) {
-      const parts = lastSwo.woNumber.split('-');
-      seq = parseInt(parts[2], 10) + 1;
-    }
+      .getRawOne<{ maxSeq: number | null }>();
+    const seq = (result?.maxSeq ?? 0) + 1;
     return `SWO-${year}-${String(seq).padStart(3, '0')}`;
   }
 
@@ -90,7 +93,8 @@ export class SubcontractWorkOrdersService {
     const swo = await this.findOne(id);
     Object.assign(swo, dto);
     swo.amount = Number(dto.amount ?? swo.amount ?? 0);
-    swo.gstAmount = (swo.amount * Number(dto.gstPercentage ?? swo.gstPercentage)) / 100;
+    swo.gstAmount =
+      (swo.amount * Number(dto.gstPercentage ?? swo.gstPercentage)) / 100;
     swo.totalAmount = swo.amount + swo.gstAmount;
 
     // project/subcontractor/workCategory are eager-loaded by findOne(), so
