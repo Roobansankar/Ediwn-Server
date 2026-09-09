@@ -63,6 +63,7 @@ export class ProjectsController {
   }
 
   @Get(':id/details')
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
   @ApiOperation({
     summary:
       'Get project financial details (expenses, SWOs, bills, invoices, payments)',
