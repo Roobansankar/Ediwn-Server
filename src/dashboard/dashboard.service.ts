@@ -70,7 +70,7 @@ export class DashboardService {
     });
     const assignedProjectCount = user?.projects?.length || 0;
 
-    // 1. Pending POs (Approved but not fully billed)
+    // 1. Active POs (Approved but not fully billed)
     const pendingPOs = await this.poRepo.find({
       where: {
         status: PurchaseOrderStatus.APPROVED,
@@ -78,6 +78,15 @@ export class DashboardService {
       },
       relations: ['vendor', 'items', 'project'],
       order: { createdAt: 'DESC' },
+    });
+
+    // 1b. Genuinely pending POs (submitted, awaiting approval) — distinct
+    // from the "active" (approved) ones above.
+    const pendingPOCount = await this.poRepo.count({
+      where: {
+        status: PurchaseOrderStatus.PENDING,
+        isDeleted: false,
+      },
     });
 
     // 2. Unpaid bill count (no amounts — that's Accounts' concern)
@@ -136,6 +145,7 @@ export class DashboardService {
         materialRequirementCount,
         materialReceivedCount,
         activePOCount: pendingPOs.length,
+        pendingPOCount,
         unpaidBillCount,
       },
       recentActivity: {
