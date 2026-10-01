@@ -30,6 +30,8 @@ export class VendorQuotationsService {
       transportAmount: dto.transportAmount,
       totalWithGst: Number((basicAmount + gstAmount + transportAmount).toFixed(2)),
       materialRequirementId: dto.materialRequirementId,
+      expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
+      paymentTerms: dto.paymentTerms || null,
       status: 'pending',
     });
     return this.repo.save(quotation);
@@ -54,7 +56,11 @@ export class VendorQuotationsService {
 
   async update(id: string, dto: UpdateVendorQuotationDto): Promise<VendorQuotation> {
     const quotation = await this.findOne(id);
-    Object.assign(quotation, dto);
+    const { expectedDate, ...rest } = dto;
+    Object.assign(quotation, rest);
+    if (expectedDate !== undefined) {
+      quotation.expectedDate = expectedDate ? new Date(expectedDate) : null;
+    }
 
     if (dto.totalAmount !== undefined || dto.gstPercent !== undefined || dto.transportAmount !== undefined) {
       const basicAmount = Number(quotation.totalAmount) || 0;

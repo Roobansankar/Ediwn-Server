@@ -42,6 +42,12 @@ export class PurchaseEnquiry {
   @Column({ type: 'varchar', length: 50, default: 'draft' })
   status: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  expectedDate: Date | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  paymentTerms: string | null;
+
   @Column({ default: false })
   isDeleted: boolean;
 

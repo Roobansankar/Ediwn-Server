@@ -3,6 +3,8 @@ import {
   IsUUID,
   IsArray,
   IsNumber,
+  IsIn,
+  IsDateString,
   Min,
   ValidateNested,
   IsOptional,
@@ -20,6 +22,15 @@ export class CreatePurchaseEnquiryDto {
   @ApiPropertyOptional() @IsUUID() @IsOptional() vendorId?: string;
   @ApiProperty() @IsUUID() projectId: string;
   @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
+  @ApiPropertyOptional({ description: 'Expected date & time (ISO string)' })
+  @IsDateString()
+  @IsOptional()
+  expectedDate?: string;
+  @ApiPropertyOptional({ enum: ['advance', 'credit', 'full_payment'] })
+  @IsString()
+  @IsIn(['advance', 'credit', 'full_payment'])
+  @IsOptional()
+  paymentTerms?: string;
   @ApiProperty({ type: [EnquiryItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

@@ -42,6 +42,8 @@ import { ProjectAccessModule } from './project-access/project-access.module.js';
 import { AdvanceRequestsModule } from './advance-requests/advance-requests.module.js';
 import { SubcontractorPaymentRequestsModule } from './subcontractor-payment-requests/subcontractor-payment-requests.module.js';
 import { SubcontractorWorkModule } from './subcontractor-work/subcontractor-work.module.js';
+import { PurchaseTodosModule } from './purchase-todos/purchase-todos.module.js';
+import { VendorCategoriesModule } from './vendor-categories/vendor-categories.module.js';
 
 // Entity imports
 import { User } from './users/entities/user.entity.js';
@@ -94,6 +96,8 @@ import { AdvanceRequest } from './advance-requests/entities/advance-request.enti
 import { SubcontractorPaymentRequest } from './subcontractor-payment-requests/entities/subcontractor-payment-request.entity.js';
 import { SubcontractorWork } from './subcontractor-work/entities/subcontractor-work.entity.js';
 import { Team } from './teams/entities/team.entity.js';
+import { PurchaseTodo } from './purchase-todos/entities/purchase-todo.entity.js';
+import { VendorCategory } from './vendor-categories/entities/vendor-category.entity.js';
 
 function getBooleanConfig(
   configService: ConfigService,
@@ -174,6 +178,8 @@ function getBooleanConfig(
           AdvanceRequest,
           SubcontractorPaymentRequest,
           SubcontractorWork,
+          PurchaseTodo,
+          VendorCategory,
         ],
         // Always false — schema changes go through src/migrations only.
         // synchronize:true would auto-alter (and can silently drop) columns
@@ -223,6 +229,8 @@ function getBooleanConfig(
     AdvanceRequestsModule,
     SubcontractorPaymentRequestsModule,
     SubcontractorWorkModule,
+    PurchaseTodosModule,
+    VendorCategoriesModule,
   ],
 })
 export class AppModule {}

@@ -39,6 +39,12 @@ export class PurchaseOrder {
   @Column({ nullable: true })
   materialRequirementNo: string;
 
+  @Column({ type: 'timestamp', nullable: true })
+  expectedDate: Date | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  paymentTerms: string | null;
+
   @Column({ type: 'varchar', length: 50, default: PurchaseOrderStatus.PENDING })
   status: PurchaseOrderStatus;
 

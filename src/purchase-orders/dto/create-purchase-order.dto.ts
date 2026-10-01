@@ -5,6 +5,8 @@ import {
   IsArray,
   ValidateNested,
   IsNumber,
+  IsIn,
+  IsDateString,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -28,6 +30,15 @@ export class CreatePurchaseOrderDto {
   @ApiPropertyOptional() @IsString() @IsOptional() billFileKey?: string;
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() gstPercent?: number;
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() transportAmount?: number;
+  @ApiPropertyOptional({ description: 'Expected date & time (ISO string)' })
+  @IsDateString()
+  @IsOptional()
+  expectedDate?: string;
+  @ApiPropertyOptional({ enum: ['advance', 'credit', 'full_payment'] })
+  @IsString()
+  @IsIn(['advance', 'credit', 'full_payment'])
+  @IsOptional()
+  paymentTerms?: string;
   @ApiProperty({ type: [PoItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

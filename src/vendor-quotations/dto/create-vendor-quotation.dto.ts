@@ -3,6 +3,8 @@ import {
   IsUUID,
   IsArray,
   IsNumber,
+  IsIn,
+  IsDateString,
   Min,
   ValidateNested,
   IsOptional,
@@ -30,4 +32,13 @@ export class CreateVendorQuotationDto {
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() transportAmount?: number;
   @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
   @ApiPropertyOptional() @IsUUID() @IsOptional() groupId?: string;
+  @ApiPropertyOptional({ description: 'Expected date & time (ISO string)' })
+  @IsDateString()
+  @IsOptional()
+  expectedDate?: string;
+  @ApiPropertyOptional({ enum: ['advance', 'credit', 'full_payment'] })
+  @IsString()
+  @IsIn(['advance', 'credit', 'full_payment'])
+  @IsOptional()
+  paymentTerms?: string;
 }

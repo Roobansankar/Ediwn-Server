@@ -29,6 +29,24 @@ export class Vendor {
   @Column({ nullable: true })
   contactPhone: string;
 
+  @Column({ nullable: true })
+  category: string;
+
+  @Column({ nullable: true })
+  bankName: string;
+
+  @Column({ nullable: true })
+  accountHolderName: string;
+
+  @Column({ nullable: true })
+  accountNumber: string;
+
+  @Column({ nullable: true })
+  ifscCode: string;
+
+  @Column({ nullable: true })
+  branch: string;
+
   @Column({ default: false })
   isDeleted: boolean;
 

@@ -43,6 +43,8 @@ export class PurchaseEnquiriesService {
       notes: dto.notes,
       items: dto.items,
       status: 'pending',
+      expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
+      paymentTerms: dto.paymentTerms || null,
       createdBy: user?.id,
     });
     const saved = await this.repo.save(enquiry);
@@ -95,6 +97,8 @@ export class PurchaseEnquiriesService {
       projectId: dto.projectId,
       notes: dto.notes,
       items: dto.items,
+      expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
+      paymentTerms: dto.paymentTerms || null,
       updatedBy: userId ?? '',
     });
     return this.repo.save(enquiry);

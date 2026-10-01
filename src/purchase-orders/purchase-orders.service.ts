@@ -68,6 +68,8 @@ export class PurchaseOrdersService {
       materialRequirementNo: dto.materialRequirementNo,
       billFileUrl: dto.billFileUrl,
       billFileKey: dto.billFileKey,
+      expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
+      paymentTerms: dto.paymentTerms || null,
       totalAmount: basicAmount,
       gstPercent,
       gstAmount,
@@ -166,8 +168,7 @@ export class PurchaseOrdersService {
   async update(id: string, dto: any, userId?: string): Promise<PurchaseOrder> {
     const po = await this.findOne(id);
 
-    if (dto.items) {
-      // Remove old items
+    if (dto.items) {      // Remove old items
       await this.poItemRepo.delete({ purchaseOrderId: id });
 
       // Create new items
@@ -188,6 +189,12 @@ export class PurchaseOrdersService {
     Object.assign(po, {
       ...dto,
       items: po.items,
+      expectedDate:
+        dto.expectedDate === undefined
+          ? po.expectedDate
+          : dto.expectedDate
+            ? new Date(dto.expectedDate)
+            : null,
       updatedBy: userId ?? '',
     });
 

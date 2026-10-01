@@ -30,4 +30,34 @@ export class CreateVendorDto {
   @IsString()
   @IsOptional()
   contactPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  bankName?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  accountHolderName?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  accountNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  ifscCode?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  branch?: string;
 }
