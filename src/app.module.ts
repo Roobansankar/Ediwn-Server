@@ -32,6 +32,8 @@ import { SalariesModule } from './salaries/salaries.module.js';
 import { TimesheetAttendanceModule } from './timesheet-attendance/timesheet-attendance.module.js';
 import { ProjectCategoriesModule } from './project-categories/project-categories.module.js';
 import { VendorQuotationsModule } from './vendor-quotations/vendor-quotations.module.js';
+import { SubcontractorEnquiry } from './subcontractor-enquiries/entities/subcontractor-enquiry.entity.js';
+import { SubcontractorEnquiriesModule } from './subcontractor-enquiries/subcontractor-enquiries.module.js';
 import { EmployeeQueriesModule } from './employee-queries/employee-queries.module.js';
 import { SchemasModule } from './schemas/schemas.module.js';
 import { OfficeStaffModule } from './office-staff/office-staff.module.js';
@@ -166,6 +168,7 @@ function getBooleanConfig(
           ItemDescription,
           PurchaseEnquiry,
           VendorQuotation,
+          SubcontractorEnquiry,
           Salary,
           WeeklyTimesheet,
           TimesheetRow,
@@ -219,6 +222,7 @@ function getBooleanConfig(
     TimesheetAttendanceModule,
     ProjectCategoriesModule,
     VendorQuotationsModule,
+    SubcontractorEnquiriesModule,
     EmployeeQueriesModule,
     SchemasModule,
     OfficeStaffModule,

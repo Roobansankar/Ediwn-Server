@@ -23,7 +23,8 @@
     "seed:compiled": "bun dist/seed.js",
     "typeorm": "typeorm-ts-node-esm",
     "migration:generate": "typeorm-ts-node-esm migration:generate -d src/data-source.ts",
-    "migration:run": "typeorm-ts-node-esm migration:run -d src/data-source.ts"
+    "migration:run": "typeorm-ts-node-esm migration:run -d src/data-source.ts",
+    "migrate:scripts": "node scripts/run-all.mjs"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.4",
