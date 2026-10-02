@@ -70,6 +70,7 @@ export class PurchaseOrdersService {
       billFileKey: dto.billFileKey,
       expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
       paymentTerms: dto.paymentTerms || null,
+      remarks: dto.remarks || null,
       totalAmount: basicAmount,
       gstPercent,
       gstAmount,

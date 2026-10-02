@@ -28,6 +28,7 @@ export class CreatePurchaseOrderDto {
   @ApiPropertyOptional() @IsString() @IsOptional() materialRequirementNo?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() billFileUrl?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() billFileKey?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() remarks?: string;
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() gstPercent?: number;
   @ApiPropertyOptional() @IsNumber() @Min(0) @IsOptional() transportAmount?: number;
   @ApiPropertyOptional({ description: 'Expected date & time (ISO string)' })

@@ -22,6 +22,7 @@ export class CreatePurchaseEnquiryDto {
   @ApiPropertyOptional() @IsUUID() @IsOptional() vendorId?: string;
   @ApiProperty() @IsUUID() projectId: string;
   @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() purposeOfMaterial?: string;
   @ApiPropertyOptional({ description: 'Expected date & time (ISO string)' })
   @IsDateString()
   @IsOptional()

@@ -36,6 +36,9 @@ export class PurchaseEnquiry {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ type: 'text', nullable: true })
+  purposeOfMaterial: string | null;
+
   @Column({ type: 'jsonb', default: [] })
   items: { description: string; quantity: number; unit?: string }[];
 
