@@ -40,4 +40,29 @@ export class CreateSubcontractorDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  bankName?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  accountHolderName?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  accountNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  ifscCode?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  branch?: string;
 }

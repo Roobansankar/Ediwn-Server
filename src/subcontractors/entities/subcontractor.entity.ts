@@ -40,6 +40,21 @@ export class Subcontractor {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ nullable: true })
+  bankName: string;
+
+  @Column({ nullable: true })
+  accountHolderName: string;
+
+  @Column({ nullable: true })
+  accountNumber: string;
+
+  @Column({ nullable: true })
+  ifscCode: string;
+
+  @Column({ nullable: true })
+  branch: string;
+
   @Column({ default: false })
   isDeleted: boolean;
 
