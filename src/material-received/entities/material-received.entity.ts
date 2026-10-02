@@ -39,6 +39,9 @@ export class MaterialReceived {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ type: 'text', nullable: true })
+  damageRemarks: string | null;
+
   @Column({ type: 'jsonb', default: [] })
   items: { description: string; quantity: number }[];
 

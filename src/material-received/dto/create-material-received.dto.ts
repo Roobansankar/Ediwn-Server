@@ -22,6 +22,7 @@ export class CreateMaterialReceivedDto {
   @ApiPropertyOptional() @ValidateIf((o) => o.purchaseOrderId !== undefined && o.purchaseOrderId !== '') @IsUUID() purchaseOrderId?: string;
   @ApiPropertyOptional() @ValidateIf((o) => o.receivedDate !== undefined && o.receivedDate !== '') @IsDateString() receivedDate?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() notes?: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() damageRemarks?: string;
   @ApiProperty({ type: [MaterialReceivedItemDto] })
   @IsArray()
   @ValidateNested({ each: true })
