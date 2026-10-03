@@ -10,6 +10,7 @@ import { DprModule } from './dpr/dpr.module.js';
 import { DrawingsModule } from './drawings/drawings.module.js';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.js';
 import { AccountsModule } from './accounts/accounts.module.js';
+import { SubcontractorBillsModule } from './subcontractor-bills/subcontractor-bills.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
 import { ExpensePaymentsModule } from './expense-payments/expense-payments.module.js';
 import { LabourPaymentsModule } from './labour-payments/labour-payments.module.js';
@@ -70,6 +71,7 @@ import { SalesInvoice } from './accounts/entities/sales-invoice.entity.js';
 import { InvoiceItem } from './accounts/entities/invoice-item.entity.js';
 import { PurchaseBill } from './accounts/entities/purchase-bill.entity.js';
 import { BillItem } from './accounts/entities/bill-item.entity.js';
+import { SubcontractorBill } from './subcontractor-bills/entities/subcontractor-bill.entity.js';
 import { BoqItem } from './accounts/entities/boq-item.entity.js';
 import { Advance } from './accounts/entities/advance.entity.js';
 import { Expense } from './expenses/entities/expense.entity.js';
@@ -151,6 +153,7 @@ function getBooleanConfig(
           InvoiceItem,
           PurchaseBill,
           BillItem,
+          SubcontractorBill,
           BoqItem,
           Advance,
           Expense,
@@ -204,6 +207,7 @@ function getBooleanConfig(
     ExpensesModule,
     ExpensePaymentsModule,
     LabourPaymentsModule,
+    SubcontractorBillsModule,
     PaymentsModule,
     DashboardModule,
     SubcontractorsModule,

@@ -17,6 +17,7 @@ import {
   Role,
 } from '../common/enums.js';
 import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
+import { SubcontractorBill } from '../subcontractor-bills/entities/subcontractor-bill.entity.js';
 import { Expense } from '../expenses/entities/expense.entity.js';
 import { SalesInvoice } from '../accounts/entities/sales-invoice.entity.js';
 import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
@@ -31,6 +32,8 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment) private paymentsRepo: Repository<Payment>,
     @InjectRepository(PurchaseBill) private billRepo: Repository<PurchaseBill>,
+    @InjectRepository(SubcontractorBill)
+    private subcontractorBillRepo: Repository<SubcontractorBill>,
     @InjectRepository(Expense) private expenseRepo: Repository<Expense>,
     @InjectRepository(User) private userRepo: Repository<User>,
     private dataSource: DataSource,
@@ -97,6 +100,27 @@ export class PaymentsService {
 
         if (!projectId) projectId = swo.projectId;
         if (!payeeName) payeeName = swo.subcontractor?.name;
+      }
+
+      if (dto.subcontractorBillId) {
+        const bill = await manager.findOne(SubcontractorBill, {
+          where: { id: dto.subcontractorBillId },
+          relations: ['subcontractor'],
+        });
+        if (!bill) throw new NotFoundException('Subcontractor bill not found');
+
+        if (!projectId) projectId = bill.projectId;
+        if (!payeeName) payeeName = bill.subcontractor?.name;
+
+        // Update bill paid amount - same running-total pattern as purchaseBillId.
+        const newPaidAmount = Number(bill.paidAmount) + Number(dto.amount);
+        bill.paidAmount = newPaidAmount;
+
+        if (newPaidAmount >= Number(bill.amount)) {
+          bill.paidAt = new Date();
+        }
+
+        await manager.save(bill);
       }
 
       if (dto.subcontractorPaymentRequestId) {

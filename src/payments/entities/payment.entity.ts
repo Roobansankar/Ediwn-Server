@@ -9,6 +9,7 @@ import {
 import { PaymentType, PaymentMode } from '../../common/enums.js';
 import { Project } from '../../projects/entities/project.entity.js';
 import { PurchaseBill } from '../../accounts/entities/purchase-bill.entity.js';
+import { SubcontractorBill } from '../../subcontractor-bills/entities/subcontractor-bill.entity.js';
 import { Vendor } from '../../vendors/entities/vendor.entity.js';
 import { Expense } from '../../expenses/entities/expense.entity.js';
 import { SalesInvoice } from '../../accounts/entities/sales-invoice.entity.js';
@@ -45,6 +46,13 @@ export class Payment {
 
   @Column({ nullable: true })
   subcontractWorkOrderId: string;
+
+  @ManyToOne(() => SubcontractorBill, (bill) => bill.payments, { nullable: true })
+  @JoinColumn({ name: 'subcontractorBillId' })
+  subcontractorBill: SubcontractorBill;
+
+  @Column({ nullable: true })
+  subcontractorBillId: string;
 
   @ManyToOne(() => AdvanceRequest, { nullable: true })
   @JoinColumn({ name: 'advanceRequestId' })
