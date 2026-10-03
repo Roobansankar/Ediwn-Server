@@ -11,6 +11,9 @@ import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity
 import { PoItem } from '../purchase-orders/entities/po-item.entity.js';
 import { BillItem } from './entities/bill-item.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
+import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry.entity.js';
+import { VendorQuotation } from '../vendor-quotations/entities/vendor-quotation.entity.js';
+import { MaterialReceived } from '../material-received/entities/material-received.entity.js';
 import {
   CreateInvoiceDto,
   CreateBillDto,
@@ -37,6 +40,12 @@ export class AccountsService {
     @InjectRepository(PoItem) private poItemRepo: Repository<PoItem>,
     @InjectRepository(BillItem) private billItemRepo: Repository<BillItem>,
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
+    @InjectRepository(PurchaseEnquiry)
+    private purchaseEnquiryRepo: Repository<PurchaseEnquiry>,
+    @InjectRepository(VendorQuotation)
+    private vendorQuotationRepo: Repository<VendorQuotation>,
+    @InjectRepository(MaterialReceived)
+    private materialReceivedRepo: Repository<MaterialReceived>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -257,6 +266,47 @@ export class AccountsService {
     });
     if (!bill) throw new NotFoundException('Bill not found');
     return bill;
+  }
+
+  // Full procurement trail for one bill, walking backwards from its PO:
+  // Material Requirement (by PO.materialRequirementNo) -> the vendor's
+  // Quotation/Enquiry against that MR -> Material Received against the PO.
+  // Used to show the MR -> Enquiry -> PO -> Material Received -> Bill chain
+  // on the bill detail page.
+  async getBillTrail(id: string) {
+    const bill = await this.findOneBill(id);
+    const po = bill.purchaseOrder;
+
+    let materialRequirement: PurchaseEnquiry | null = null;
+    let vendorQuotation: VendorQuotation | null = null;
+    let materialReceived: MaterialReceived[] = [];
+
+    if (po?.materialRequirementNo) {
+      materialRequirement = await this.purchaseEnquiryRepo.findOne({
+        where: { enquiryNo: po.materialRequirementNo, isDeleted: false },
+        relations: ['project'],
+      });
+
+      if (materialRequirement) {
+        vendorQuotation = await this.vendorQuotationRepo.findOne({
+          where: {
+            materialRequirementId: materialRequirement.id,
+            vendorId: po.vendorId,
+            isDeleted: false,
+          },
+          order: { createdAt: 'DESC' },
+        });
+      }
+    }
+
+    if (po?.id) {
+      materialReceived = await this.materialReceivedRepo.find({
+        where: { purchaseOrderId: po.id, isDeleted: false },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    return { bill, materialRequirement, vendorQuotation, materialReceived };
   }
 
   async findBills() {

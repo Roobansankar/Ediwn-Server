@@ -15,6 +15,9 @@ import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity
 import { PoItem } from '../purchase-orders/entities/po-item.entity.js';
 import { BillItem } from './entities/bill-item.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
+import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry.entity.js';
+import { VendorQuotation } from '../vendor-quotations/entities/vendor-quotation.entity.js';
+import { MaterialReceived } from '../material-received/entities/material-received.entity.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
@@ -30,6 +33,9 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
       PurchaseOrder,
       PoItem,
       Payment,
+      PurchaseEnquiry,
+      VendorQuotation,
+      MaterialReceived,
     ]),
     NotificationsModule,
   ],

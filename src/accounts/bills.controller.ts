@@ -92,6 +92,15 @@ export class BillsController {
     return this.accountsService.findOneBill(id);
   }
 
+  @Get(':id/trail')
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @ApiOperation({
+    summary: 'Get the full MR -> Enquiry -> PO -> Material Received trail for a bill',
+  })
+  getBillTrail(@Param('id') id: string) {
+    return this.accountsService.getBillTrail(id);
+  }
+
   @Patch(':id/status')
   @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Update bill status' })
