@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThanOrEqual, Not } from 'typeorm';
 import { Project } from '../projects/entities/project.entity.js';
 import { ProjectMilestone } from '../projects/entities/project-milestone.entity.js';
 import { AttendanceLog } from '../projects/entities/attendance-log.entity.js';
@@ -13,7 +13,18 @@ import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity
 import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry.entity.js';
 import { MaterialReceived } from '../material-received/entities/material-received.entity.js';
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
-import { InvoiceStatus, PurchaseOrderStatus } from '../common/enums.js';
+import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
+import { LabourPaymentsService } from '../labour-payments/labour-payments.service.js';
+import { ExpensePaymentsService } from '../expense-payments/expense-payments.service.js';
+import {
+  InvoiceStatus,
+  PurchaseOrderStatus,
+  SubcontractWorkOrderStatus,
+} from '../common/enums.js';
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
 
 @Injectable()
 export class DashboardService {
@@ -36,6 +47,10 @@ export class DashboardService {
     private materialReceivedRepo: Repository<MaterialReceived>,
     @InjectRepository(WeeklyTimesheet)
     private tsRepo: Repository<WeeklyTimesheet>,
+    @InjectRepository(SubcontractWorkOrder)
+    private swoRepo: Repository<SubcontractWorkOrder>,
+    private labourPayments: LabourPaymentsService,
+    private expensePayments: ExpensePaymentsService,
   ) {}
 
   // Shared by both the purchase-team and site-engineer "assigned projects"
@@ -226,15 +241,77 @@ export class DashboardService {
     );
     const pendingBillCount = poBalances.filter((balance) => balance > 0).length;
 
-    // 3. Recent Payments (Latest 10)
-    const recentPayments = await this.paymentRepo.find({
-      where: { isDeleted: false },
-      relations: ['vendor', 'project'],
-      order: { paymentDate: 'DESC' },
-      take: 10,
+    // 2b. The same payables figure split by what the money is owed for.
+    // Material is the PO figure above, unchanged. Sub Contractor mirrors it
+    // for subcontract work orders (order total less payments made against
+    // it; rejected orders are never owed). Labour and Expenses follow the
+    // weekly payment pages: whatever is approved but not yet attached to a
+    // payment, plus payments recorded there that are still 'pending'. An
+    // entry leaves the unpaid list the moment it's attached to a payment,
+    // so nothing is counted twice.
+    const swosForPayables = await this.swoRepo.find({
+      where: {
+        isDeleted: false,
+        status: Not(SubcontractWorkOrderStatus.REJECTED),
+      },
     });
+    const swoPaidRows = swosForPayables.length
+      ? await this.paymentRepo
+          .createQueryBuilder('p')
+          .select('p.subcontractWorkOrderId', 'subcontractWorkOrderId')
+          .addSelect('SUM(p.amount)', 'total')
+          .where('p.isDeleted = false')
+          .andWhere('p.subcontractWorkOrderId IN (:...ids)', {
+            ids: swosForPayables.map((swo) => swo.id),
+          })
+          .groupBy('p.subcontractWorkOrderId')
+          .getRawMany<{ subcontractWorkOrderId: string; total: string }>()
+      : [];
+    const swoPaidById = new Map(
+      swoPaidRows.map((r) => [r.subcontractWorkOrderId, Number(r.total)]),
+    );
+    const swoBalances = swosForPayables
+      .map(
+        (swo) => Number(swo.totalAmount || 0) - (swoPaidById.get(swo.id) || 0),
+      )
+      .filter((balance) => balance > 0);
 
-    // 4. Inflow vs Outflow (Current month)
+    const [
+      unpaidLabourWeeks,
+      recordedLabourPayments,
+      unpaidExpenseWeeks,
+      recordedExpensePayments,
+    ] = await Promise.all([
+      this.labourPayments.getUnpaidWeeklySummary(),
+      this.labourPayments.findAll(),
+      this.expensePayments.getUnpaidWeeklySummary(),
+      this.expensePayments.findAll(),
+    ]);
+    const weeklyPayable = (
+      unpaidWeeks: { totalAmount: number }[],
+      recorded: { status: string; amount: number }[],
+    ) => {
+      const pending = recorded.filter((p) => p.status === 'pending');
+      return {
+        amount: roundMoney(
+          unpaidWeeks.reduce((sum, w) => sum + Number(w.totalAmount), 0) +
+            pending.reduce((sum, p) => sum + Number(p.amount), 0),
+        ),
+        count: unpaidWeeks.length + pending.length,
+      };
+    };
+
+    const payableByCategory = {
+      labour: weeklyPayable(unpaidLabourWeeks, recordedLabourPayments),
+      material: { amount: totalPayable, count: pendingBillCount },
+      subcontractor: {
+        amount: roundMoney(swoBalances.reduce((sum, b) => sum + b, 0)),
+        count: swoBalances.length,
+      },
+      expenses: weeklyPayable(unpaidExpenseWeeks, recordedExpensePayments),
+    };
+
+    // 3. Inflow vs Outflow (Current month)
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -269,17 +346,10 @@ export class DashboardService {
         pendingInvoiceCount,
         totalPayable,
         pendingBillCount,
+        payableByCategory,
         monthInflow: Number(monthInflow?.total || 0),
         monthOutflow: Number(monthOutflow?.total || 0),
       },
-      recentPayments: recentPayments.map((p) => ({
-        id: p.id,
-        amount: p.amount,
-        date: p.paymentDate,
-        mode: p.paymentMode,
-        type: p.paymentType,
-        party: p.vendor?.name || p.project?.clientName || p.payeeName,
-      })),
     };
   }
 

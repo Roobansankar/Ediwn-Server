@@ -14,6 +14,9 @@ import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry
 import { MaterialReceived } from '../material-received/entities/material-received.entity.js';
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
 import { User } from '../users/entities/user.entity.js';
+import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
+import { LabourPaymentsModule } from '../labour-payments/labour-payments.module.js';
+import { ExpensePaymentsModule } from '../expense-payments/expense-payments.module.js';
 
 @Module({
   imports: [
@@ -30,7 +33,10 @@ import { User } from '../users/entities/user.entity.js';
       PurchaseEnquiry,
       MaterialReceived,
       WeeklyTimesheet,
+      SubcontractWorkOrder,
     ]),
+    LabourPaymentsModule,
+    ExpensePaymentsModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

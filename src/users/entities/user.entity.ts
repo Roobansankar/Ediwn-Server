@@ -39,7 +39,10 @@ export class User {
   @Column({ type: 'text', nullable: true })
   address: string;
 
-  @Column()
+  // Never selected by default, so the hash can't ride along in API responses
+  // that join a User relation (expense creator, report author, ...). The one
+  // place that needs it - login - asks for it explicitly with addSelect.
+  @Column({ select: false })
   passwordHash: string;
 
   @Column({ type: 'enum', enum: Role, default: Role.VIEWER })

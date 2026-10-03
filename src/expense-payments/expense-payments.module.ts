@@ -14,5 +14,6 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
   ],
   controllers: [ExpensePaymentsController],
   providers: [ExpensePaymentsService],
+  exports: [ExpensePaymentsService],
 })
 export class ExpensePaymentsModule {}

@@ -29,6 +29,7 @@ import { Roles } from '../auth/roles.decorator.js';
 import { Role, ExpenseCategory } from '../common/enums.js';
 import { ExpensesService } from './expenses.service.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
+import { UpdateExpenseDto } from './dto/update-expense.dto.js';
 
 @ApiTags('Expenses')
 @Controller({ path: 'expenses', version: '1' })
@@ -64,7 +65,7 @@ export class ExpensesController {
     @Request() req: any,
     @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    return this.expensesService.create(dto, req.user.id, files);
+    return this.expensesService.create(dto, req.user, files);
   }
 
   @Get()
@@ -103,8 +104,8 @@ export class ExpensesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get expense by id' })
-  findOne(@Param('id') id: string) {
-    return this.expensesService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: any) {
+    return this.expensesService.findOneForUser(id, req.user);
   }
 
   @Patch(':id')
@@ -131,7 +132,7 @@ export class ExpensesController {
   @ApiOperation({ summary: 'Update expense' })
   update(
     @Param('id') id: string,
-    @Body() dto: Partial<CreateExpenseDto>,
+    @Body() dto: UpdateExpenseDto,
     @Request() req: any,
     @UploadedFiles() files?: Express.Multer.File[],
   ) {
@@ -141,7 +142,7 @@ export class ExpensesController {
   @Delete(':id')
   @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.SITE_ENGINEER, Role.OFFICE_STAFF, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Delete expense' })
-  remove(@Param('id') id: string) {
-    return this.expensesService.softDelete(id);
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.expensesService.softDelete(id, req.user);
   }
 }

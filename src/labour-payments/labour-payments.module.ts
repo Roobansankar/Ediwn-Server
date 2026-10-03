@@ -14,5 +14,6 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
   ],
   controllers: [LabourPaymentsController],
   providers: [LabourPaymentsService],
+  exports: [LabourPaymentsService],
 })
 export class LabourPaymentsModule {}

@@ -17,6 +17,14 @@ import {
 import { Payment } from '../payments/entities/payment.entity.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 
+type RequestUser = { id: string; role: string };
+
+// Admin and accounts review everyone's expenses; every other role may only
+// change or remove the ones they submitted themselves.
+function canManageAnyExpense(user?: RequestUser) {
+  return user?.role === Role.ADMIN || user?.role === Role.ACCOUNTS_MANAGER;
+}
+
 @Injectable()
 export class ExpensesService {
   constructor(
@@ -28,9 +36,26 @@ export class ExpensesService {
 
   async create(
     dto: CreateExpenseDto,
-    userId?: string,
+    user?: RequestUser,
     files?: Express.Multer.File[],
   ): Promise<Expense> {
+    // Same rule as update(): a new expense can't be submitted already
+    // approved by someone who isn't allowed to approve it.
+    if (dto.status !== undefined && dto.status !== ExpenseStatus.PENDING) {
+      if (!canManageAnyExpense(user)) {
+        throw new ForbiddenException(
+          'Only admin and accounts can update expense status',
+        );
+      }
+      if (
+        user?.role === Role.ACCOUNTS_MANAGER &&
+        dto.status === ExpenseStatus.ADMIN_APPROVED
+      ) {
+        throw new ForbiddenException('Only admin can give final approval');
+      }
+    }
+
+    const userId = user?.id;
     return await this.dataSource.transaction(async (manager) => {
       // Handle file uploads
       const receiptUrls: string[] = [];
@@ -158,10 +183,24 @@ export class ExpensesService {
     return expense;
   }
 
+  // Mirrors findAll(): site engineers and office staff only ever see their
+  // own individual expenses.
+  async findOneForUser(id: string, user?: RequestUser): Promise<Expense> {
+    const expense = await this.findOne(id);
+    if (
+      user &&
+      (user.role === Role.SITE_ENGINEER || user.role === Role.OFFICE_STAFF) &&
+      expense.createdBy !== user.id
+    ) {
+      throw new ForbiddenException('You can only view your own expenses');
+    }
+    return expense;
+  }
+
   async update(
     id: string,
     dto: Partial<CreateExpenseDto>,
-    user?: { id: string; role: string },
+    user?: RequestUser,
     files?: Express.Multer.File[],
   ): Promise<Expense> {
     if (dto.status !== undefined && user) {
@@ -179,6 +218,9 @@ export class ExpensesService {
     }
 
     const expense = await this.findOne(id);
+    if (user && !canManageAnyExpense(user) && expense.createdBy !== user.id) {
+      throw new ForbiddenException('You can only edit your own expenses');
+    }
 
     // Handle new file uploads
     if (files && files.length > 0) {
@@ -302,8 +344,11 @@ export class ExpensesService {
     return saved;
   }
 
-  async softDelete(id: string): Promise<void> {
+  async softDelete(id: string, user?: RequestUser): Promise<void> {
     const expense = await this.findOne(id);
+    if (user && !canManageAnyExpense(user) && expense.createdBy !== user.id) {
+      throw new ForbiddenException('You can only delete your own expenses');
+    }
     expense.isDeleted = true;
     await this.expensesRepo.save(expense);
 

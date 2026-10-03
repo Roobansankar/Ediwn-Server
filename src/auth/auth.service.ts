@@ -14,13 +14,17 @@ export class AuthService {
   ) {}
 
   async validateUser(identifier: string, password: string): Promise<User> {
-    const user = await this.usersRepository.findOne({
-      where: [
-        { email: identifier, isActive: true },
-        { username: identifier, isActive: true },
-      ],
-      relations: ['projects'],
-    });
+    // passwordHash is `select: false` on the entity, so it has to be asked
+    // for explicitly here.
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.projects', 'projects')
+      .where('user.isActive = true')
+      .andWhere('(user.email = :identifier OR user.username = :identifier)', {
+        identifier,
+      })
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
