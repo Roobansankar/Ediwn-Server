@@ -22,6 +22,11 @@ export class SubcontractWorkOrder {
   @Column({ unique: true })
   woNumber: string;
 
+  // Set when this WO was created from an approved Subcontractor Enquiry
+  // comparison (SCR No) - lets the table trace which quote it came from.
+  @Column({ type: 'varchar', nullable: true })
+  scrNo: string | null;
+
   @ManyToOne(() => Project, { eager: true })
   @JoinColumn({ name: 'projectId' })
   project: Project;

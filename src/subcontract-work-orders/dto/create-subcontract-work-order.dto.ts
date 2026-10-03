@@ -57,4 +57,9 @@ export class CreateSubcontractWorkOrderDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiProperty({ required: false, description: 'SCR No of the approved subcontractor enquiry this WO was created from' })
+  @IsString()
+  @IsOptional()
+  scrNo?: string;
 }
