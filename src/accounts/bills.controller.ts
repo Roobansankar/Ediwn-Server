@@ -101,6 +101,16 @@ export class BillsController {
     return this.accountsService.getBillTrail(id);
   }
 
+  @Patch(':id/document-check')
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @ApiOperation({ summary: 'Tick one of MRR / Purchase Enquiry / PO as checked for a bill' })
+  markDocumentChecked(
+    @Param('id') id: string,
+    @Body('document') document: string,
+  ) {
+    return this.accountsService.markBillDocumentChecked(id, document);
+  }
+
   @Patch(':id/status')
   @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Update bill status' })

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesInvoice } from './entities/sales-invoice.entity.js';
@@ -360,9 +360,40 @@ export class AccountsService {
     await this.billRepo.save(bill);
   }
 
+  // Ticks one of the three documents (MRR / Purchase Enquiry / PO) as opened
+  // and checked for this bill.
+  async markBillDocumentChecked(id: string, document: string) {
+    const flagByDocument: Record<string, 'mrrChecked' | 'enquiryChecked' | 'poChecked'> = {
+      mrr: 'mrrChecked',
+      enquiry: 'enquiryChecked',
+      po: 'poChecked',
+    };
+    const flag = flagByDocument[document];
+    if (!flag) throw new BadRequestException('Unknown document. Use mrr, enquiry or po.');
+    const bill = await this.billRepo.findOne({ where: { id } });
+    if (!bill) throw new NotFoundException('Bill not found');
+    bill[flag] = true;
+    return this.billRepo.save(bill);
+  }
+
   async updateBillStatus(id: string, status: BillStatus) {
     const bill = await this.billRepo.findOne({ where: { id } });
     if (!bill) throw new NotFoundException('Bill not found');
+
+    // Gate: a bill can only be accounts-approved once all three documents
+    // have been opened and checked.
+    if (status === BillStatus.ADMIN_APPROVED) {
+      const missing: string[] = [];
+      if (!bill.mrrChecked) missing.push('MRR');
+      if (!bill.enquiryChecked) missing.push('Purchase Enquiry');
+      if (!bill.poChecked) missing.push('Purchase Order');
+      if (missing.length) {
+        throw new BadRequestException(
+          `Check all three documents before approving. Still to check: ${missing.join(', ')}.`,
+        );
+      }
+    }
+
     bill.status = status;
     if (status === BillStatus.APPROVED) bill.paidAt = new Date();
     return this.billRepo.save(bill);

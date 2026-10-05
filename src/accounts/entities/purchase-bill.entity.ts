@@ -55,6 +55,17 @@ export class PurchaseBill {
   @Column({ type: 'varchar', length: 50, default: BillStatus.PENDING })
   status: BillStatus;
 
+  // Approval gate: accounts must open and tick each of these three documents
+  // before the bill can move from Pending to Accounts Approved.
+  @Column({ type: 'boolean', default: false })
+  mrrChecked: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  enquiryChecked: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  poChecked: boolean;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   paidAmount: number;
 
