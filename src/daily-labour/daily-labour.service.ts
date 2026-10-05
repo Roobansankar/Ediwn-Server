@@ -82,6 +82,7 @@ export class DailyLabourService {
     const query = this.reportRepo
       .createQueryBuilder('report')
       .leftJoinAndSelect('report.project', 'project')
+      .leftJoinAndSelect('project.projectCategory', 'projectCategory')
       .leftJoinAndSelect('report.createdBy', 'createdBy')
       .leftJoinAndSelect('report.workers', 'workers')
       .leftJoinAndSelect('workers.tradeRel', 'tradeRel')
