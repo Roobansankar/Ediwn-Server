@@ -166,7 +166,7 @@ ALTER TABLE users
 );`,
   },
   material_requirements: {
-    description: 'Material requirement requests raised by site engineers',
+    description: 'Material requests raised by site engineers',
     columns: {
       id: { description: 'Primary key' },
       enquiryNo: { description: 'Unique material requirement number' },
