@@ -54,6 +54,9 @@ function entryAmount(worker: DailyWorker): number {
   );
 }
 
+// Trade entries that can be paid: accounts-approved, or given final approval by admin.
+const PAYABLE_TRADE_STATUSES = ['approved', 'admin_approved'];
+
 @Injectable()
 export class LabourPaymentsService {
   constructor(
@@ -76,7 +79,7 @@ export class LabourPaymentsService {
       .leftJoinAndSelect('w.tradeRel', 'trade')
       .innerJoin('r.createdBy', 'u')
       .addSelect(['u.id', 'u.name'])
-      .where('w.status = :status', { status: 'approved' })
+      .where('w.status IN (:...statuses)', { statuses: PAYABLE_TRADE_STATUSES })
       .andWhere('w.labourPaymentId IS NULL')
       .andWhere('r.isDeleted = false')
       .getMany();
@@ -121,7 +124,7 @@ export class LabourPaymentsService {
       .innerJoinAndSelect('w.report', 'r')
       .leftJoinAndSelect('w.tradeRel', 'trade')
       .where('r.createdById = :userId', { userId: dto.userId })
-      .andWhere('w.status = :status', { status: 'approved' })
+      .andWhere('w.status IN (:...statuses)', { statuses: PAYABLE_TRADE_STATUSES })
       .andWhere('w.labourPaymentId IS NULL')
       .andWhere('r.isDeleted = false')
       .andWhere('r.reportDate BETWEEN :weekStart AND :weekEnd', {

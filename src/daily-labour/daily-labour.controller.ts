@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   Body,
   UploadedFiles,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -145,6 +146,23 @@ export class DailyLabourController {
     return this.dailyLabourService.updateStatus(id, status);
   }
 
+  // One status for every trade entry of several reports (a week on Approvals).
+  @Patch('week-status')
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @ApiOperation({ summary: 'Set one status on every trade entry of several reports' })
+  setWeekStatus(
+    @Body() body: { reportIds: string[]; status: string; remarks?: string; weekLabel: string },
+    @Request() req: any,
+  ) {
+    return this.dailyLabourService.setWeekStatus(
+      body.reportIds ?? [],
+      body.status,
+      { id: req.user.id, role: req.user.role },
+      body.weekLabel ?? '',
+      body.remarks,
+    );
+  }
+
   @Patch(':reportId/workers/:workerId/status')
   @Roles(Role.ADMIN, Role.SITE_ENGINEER, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Update individual worker status' })
@@ -155,6 +173,10 @@ export class DailyLabourController {
     @Body('remarks') remarks: string,
     @Request() req: any,
   ) {
+    // Only admin gives the final Admin Approved, same as expenses.
+    if (status === 'admin_approved' && req.user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only admin can give final approval');
+    }
     return this.dailyLabourService.updateWorkerStatus(
       reportId,
       workerId,

@@ -95,8 +95,9 @@ export class MaterialReceivedController {
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateMaterialReceivedStatusDto,
+    @Request() req: any,
   ) {
-    return this.service.updateStatus(id, dto.status);
+    return this.service.updateStatus(id, dto.status, req.user);
   }
 
   @Post('upload')

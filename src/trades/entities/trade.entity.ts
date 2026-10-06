@@ -6,15 +6,19 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Team } from '../../teams/entities/team.entity.js';
 
+// A trade name is unique within a team, so two teams can each have a
+// "Carpenters" trade.
 @Entity('trades')
+@Index('IDX_trades_name_teamId', ['name', 'teamId'], { unique: true })
 export class Trade {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   name: string;
 
   @Column({ type: 'uuid', nullable: true })

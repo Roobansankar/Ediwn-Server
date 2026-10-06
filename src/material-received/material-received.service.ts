@@ -113,10 +113,29 @@ export class MaterialReceivedService {
     return this.repo.save(entry);
   }
 
-  async updateStatus(id: string, status: string): Promise<MaterialReceived> {
+  async updateStatus(
+    id: string,
+    status: string,
+    user?: RequestUser,
+  ): Promise<MaterialReceived> {
     const entry = await this.findOne(id);
+    const previous = entry.status;
     entry.status = status;
-    return this.repo.save(entry);
+    const saved = await this.repo.save(entry);
+
+    // Tell the site engineer who logged the entry when purchase team accepts it.
+    if (status === 'approved' && previous !== 'approved' && entry.createdBy) {
+      await this.notifications.createForUser(entry.createdBy, {
+        userId: user?.id,
+        type: 'material_received_approved',
+        title: 'Material Received Accepted',
+        message: `Your material received entry (${entry.mrNumber}) was accepted by purchase team.`,
+        link: '/dashboard/material-received',
+        entityId: entry.id,
+      });
+    }
+
+    return saved;
   }
 
   async remove(id: string): Promise<void> {

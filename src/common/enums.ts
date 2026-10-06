@@ -104,6 +104,9 @@ export enum ExpenseCategory {
 
 export enum MaterialReceivedStatus {
   PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  // Kept so records verified before approve / reject still validate.
   VERIFIED = 'verified',
 }
 
