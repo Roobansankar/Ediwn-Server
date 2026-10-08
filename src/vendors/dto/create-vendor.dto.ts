@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, ValidateIf } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsIn, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateVendorDto {
@@ -60,4 +60,9 @@ export class CreateVendorDto {
   @IsString()
   @IsOptional()
   branch?: string;
+
+  @ApiPropertyOptional({ enum: ['advance', 'credit', 'full_payment'] })
+  @ValidateIf((o) => o.paymentTerms !== '' && o.paymentTerms != null)
+  @IsIn(['advance', 'credit', 'full_payment'])
+  paymentTerms?: string | null;
 }
