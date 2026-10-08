@@ -45,6 +45,13 @@ export class AdvanceRequestsController {
     return this.service.findAll(req.user, status);
   }
 
+  @Get(':id/trail')
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
+  @ApiOperation({ summary: 'MR -> purchase enquiry -> PO journey behind a vendor payment request' })
+  getTrail(@Param('id') id: string, @Request() req: any) {
+    return this.service.getTrail(id, req.user);
+  }
+
   @Patch(':id/respond')
   @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Accept, give final admin approval, or reject a vendor payment request' })

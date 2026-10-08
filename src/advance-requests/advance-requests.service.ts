@@ -11,14 +11,62 @@ import { CreateAdvanceRequestDto } from './dto/create-advance-request.dto.js';
 import { RespondAdvanceRequestDto } from './dto/respond-advance-request.dto.js';
 import { Role } from '../common/enums.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry.entity.js';
+import { VendorQuotation } from '../vendor-quotations/entities/vendor-quotation.entity.js';
+import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity.js';
 
 @Injectable()
 export class AdvanceRequestsService {
   constructor(
     @InjectRepository(AdvanceRequest)
     private repo: Repository<AdvanceRequest>,
+    @InjectRepository(PurchaseEnquiry)
+    private purchaseEnquiryRepo: Repository<PurchaseEnquiry>,
+    @InjectRepository(VendorQuotation)
+    private vendorQuotationRepo: Repository<VendorQuotation>,
+    @InjectRepository(PurchaseOrder)
+    private purchaseOrderRepo: Repository<PurchaseOrder>,
     private notifications: NotificationsService,
   ) {}
+
+  // Full journey behind one vendor payment request: the material requirement
+  // (MR), every vendor quotation raised against it (the purchase enquiry
+  // comparison), and the purchase order with its items.
+  async getTrail(id: string, user: { id: string; role: string }) {
+    const request = await this.repo.findOne({ where: { id, isDeleted: false } });
+    if (!request) throw new NotFoundException('Vendor payment request not found');
+    if (
+      user.role !== Role.ADMIN &&
+      user.role !== Role.ACCOUNTS_MANAGER &&
+      request.requestedById !== user.id
+    ) {
+      throw new ForbiddenException('You can only view your own requests');
+    }
+
+    const purchaseOrder = request.purchaseOrderId
+      ? await this.purchaseOrderRepo.findOne({
+          where: { id: request.purchaseOrderId },
+          relations: ['project', 'vendor', 'items'],
+        })
+      : null;
+
+    const mrNo = request.materialRequirementNo || purchaseOrder?.materialRequirementNo || null;
+    const materialRequirement = mrNo
+      ? await this.purchaseEnquiryRepo.findOne({
+          where: { enquiryNo: mrNo, isDeleted: false },
+          relations: ['project', 'creator'],
+        })
+      : null;
+
+    const quotations = materialRequirement
+      ? await this.vendorQuotationRepo.find({
+          where: { materialRequirementId: materialRequirement.id, isDeleted: false },
+          order: { createdAt: 'ASC' },
+        })
+      : [];
+
+    return { request, materialRequirement, quotations, purchaseOrder };
+  }
 
   async create(dto: CreateAdvanceRequestDto, userId: string) {
     const request = this.repo.create({
