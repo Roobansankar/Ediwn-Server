@@ -75,7 +75,8 @@ export class NotificationsService {
     });
   }
 
-  async findByUser(userId: string, role: string): Promise<Notification[]> {
+  // The bell shows the latest 50; the Notifications page asks for more.
+  async findByUser(userId: string, role: string, limit = 50): Promise<Notification[]> {
     return this.repo
       .createQueryBuilder('n')
       .where('n.recipientId = :userId OR n.recipientRole = :role', {
@@ -83,8 +84,19 @@ export class NotificationsService {
         role,
       })
       .orderBy('n.createdAt', 'DESC')
-      .take(50)
+      .take(Math.min(Math.max(limit, 1), 500))
       .getMany();
+  }
+
+  // Marks one notification read, only if it was sent to this user or their role.
+  async markRead(id: string, userId: string, role: string): Promise<void> {
+    await this.repo
+      .createQueryBuilder()
+      .update(Notification)
+      .set({ isRead: true })
+      .where('id = :id', { id })
+      .andWhere('(recipientId = :userId OR recipientRole = :role)', { userId, role })
+      .execute();
   }
 
   async unreadCount(userId: string, role: string): Promise<number> {

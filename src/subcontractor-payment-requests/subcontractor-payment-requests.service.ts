@@ -37,7 +37,7 @@ export class SubcontractorPaymentRequestsService {
       type: 'subcontractor_payment_request',
       title: 'New Subcontractor Payment Request',
       message: `A subcontractor payment of ${dto.amount} was requested`,
-      link: '/dashboard/subcontractor-payment-requests',
+      link: '/dashboard/payments?tab=subcontractor',
       entityId: saved.id,
     });
 
@@ -109,7 +109,7 @@ export class SubcontractorPaymentRequestsService {
         type: 'subcontractor_payment_request_pending_approval',
         title: 'Subcontractor Payment Awaiting Your Approval',
         message: `A subcontractor payment of ${request.amount} was accepted by accounts and needs your final approval.`,
-        link: '/dashboard/subcontractor-payment-requests',
+        link: '/dashboard/payments?tab=subcontractor',
         entityId: request.id,
       });
     } else if (dto.action === 'admin_approved') {
@@ -118,7 +118,7 @@ export class SubcontractorPaymentRequestsService {
         type: 'subcontractor_payment_request_admin_approved',
         title: 'Subcontractor Payment Approved by Admin',
         message: `A subcontractor payment of ${request.amount} received final admin approval and is ready to be paid.`,
-        link: '/dashboard/subcontractor-payment-requests',
+        link: '/dashboard/payments?tab=subcontractor',
         entityId: request.id,
       });
     }

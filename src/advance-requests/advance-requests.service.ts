@@ -87,7 +87,7 @@ export class AdvanceRequestsService {
       type: 'advance_request',
       title: 'New Vendor Payment Request',
       message: `A vendor payment of ${dto.amount} was requested${dto.materialRequirementNo ? ` for ${dto.materialRequirementNo}` : ''}`,
-      link: '/dashboard/advance-requests',
+      link: '/dashboard/payments?tab=vendor',
       entityId: saved.id,
     });
 
@@ -159,7 +159,7 @@ export class AdvanceRequestsService {
         type: 'advance_request_pending_approval',
         title: 'Vendor Payment Awaiting Your Approval',
         message: `A vendor payment of ${request.amount} was accepted by accounts and needs your final approval.`,
-        link: '/dashboard/advance-requests',
+        link: '/dashboard/payments?tab=vendor',
         entityId: request.id,
       });
     } else if (dto.action === 'admin_approved') {
@@ -168,7 +168,7 @@ export class AdvanceRequestsService {
         type: 'advance_request_admin_approved',
         title: 'Vendor Payment Approved by Admin',
         message: `A vendor payment of ${request.amount} received final admin approval and is ready to be paid.`,
-        link: '/dashboard/advance-requests',
+        link: '/dashboard/payments?tab=vendor',
         entityId: request.id,
       });
     }
