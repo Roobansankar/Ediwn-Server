@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, LessThanOrEqual, Not } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThanOrEqual, Not, In, Brackets } from 'typeorm';
 import { Project } from '../projects/entities/project.entity.js';
 import { ProjectMilestone } from '../projects/entities/project-milestone.entity.js';
 import { AttendanceLog } from '../projects/entities/attendance-log.entity.js';
@@ -208,38 +208,52 @@ export class DashboardService {
         inv.status !== InvoiceStatus.CANCELLED,
     ).length;
 
-    // 2. Payables Summary — driven off Purchase Orders, same as the
-    // Accounts page's Payables tab (a PO is money owed to a vendor).
-    const purchaseOrdersForPayables = await this.poRepo.find({
-      where: { isDeleted: false },
-      relations: ['vendor'],
+    // 2. Material payables — driven off approved (accounts approved or
+    // approved) purchase bills that are not deleted, less what has been paid.
+    // Bills raised against the same PO are owed together and offset by every
+    // payment made against that PO or its bills; a bill with no PO uses its
+    // own payments. Pending, rejected and deleted bills owe nothing yet.
+    const approvedBills = await this.billRepo.find({
+      where: { isDeleted: false, status: In(['admin_approved', 'approved']) },
     });
-    const poPaidRows = purchaseOrdersForPayables.length
+    const billIds = approvedBills.map((b) => b.id);
+    const poIds = [...new Set(approvedBills.map((b) => b.purchaseOrderId).filter(Boolean))];
+    const billPayments = billIds.length || poIds.length
       ? await this.paymentRepo
           .createQueryBuilder('p')
-          .select('p.purchaseOrderId', 'purchaseOrderId')
-          .addSelect('SUM(p.amount)', 'total')
+          .select(['p.id', 'p.amount', 'p.purchaseOrderId', 'p.purchaseBillId'])
           .where('p.isDeleted = false')
-          .andWhere('p.purchaseOrderId IN (:...ids)', {
-            ids: purchaseOrdersForPayables.map((po) => po.id),
-          })
-          .groupBy('p.purchaseOrderId')
-          .getRawMany<{ purchaseOrderId: string; total: string }>()
+          .andWhere(
+            new Brackets((qb) => {
+              if (poIds.length) qb.orWhere('p.purchaseOrderId IN (:...poIds)', { poIds });
+              if (billIds.length) qb.orWhere('p.purchaseBillId IN (:...billIds)', { billIds });
+            }),
+          )
+          .getMany()
       : [];
-    const poPaidById = new Map(
-      poPaidRows.map((r) => [r.purchaseOrderId, Number(r.total)]),
-    );
-    const poBalances = purchaseOrdersForPayables.map((po) => {
-      const amount = Number(po.totalWithGst || po.totalAmount || 0);
-      const paidAmount = poPaidById.get(po.id) || 0;
-      return amount - paidAmount;
-    });
+    const billById = new Map(approvedBills.map((b) => [b.id, b]));
+    // Group key: the PO when there is one, otherwise the bill itself.
+    const groupOf = (poId?: string | null, billId?: string | null) =>
+      poId ? `po:${poId}` : billId ? `bill:${billId}` : null;
+    const owedByGroup = new Map<string, number>();
+    for (const b of approvedBills) {
+      const key = groupOf(b.purchaseOrderId, b.id)!;
+      owedByGroup.set(key, (owedByGroup.get(key) || 0) + Number(b.amount || 0));
+    }
+    const paidByGroup = new Map<string, number>();
+    for (const p of billPayments) {
+      const poId = p.purchaseOrderId || (p.purchaseBillId ? billById.get(p.purchaseBillId)?.purchaseOrderId : null);
+      const key = groupOf(poId, p.purchaseBillId);
+      if (!key || !owedByGroup.has(key)) continue;
+      paidByGroup.set(key, (paidByGroup.get(key) || 0) + Number(p.amount || 0));
+    }
+    const billBalances = [...owedByGroup.entries()].map(([key, owed]) => owed - (paidByGroup.get(key) || 0));
 
-    const totalPayable = poBalances.reduce(
+    const totalPayable = billBalances.reduce(
       (sum, balance) => sum + Math.max(balance, 0),
       0,
     );
-    const pendingBillCount = poBalances.filter((balance) => balance > 0).length;
+    const pendingBillCount = billBalances.filter((balance) => balance > 0).length;
 
     // 2b. The same payables figure split by what the money is owed for.
     // Material is the PO figure above, unchanged. Sub Contractor mirrors it

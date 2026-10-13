@@ -128,21 +128,23 @@ export class BillsController {
     return this.accountsService.convertPoToBill(id, req.user.id);
   }
 
+  // Purchase team raises bills, so it can correct or delete them while they
+  // are still pending; the service enforces the pending rule.
   @Put(':id')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Update bill' })
   updateBill(
     @Param('id') id: string,
     @Body() dto: CreateBillDto,
     @Request() req: any,
   ) {
-    return this.accountsService.updateBill(id, dto, req.user.id);
+    return this.accountsService.updateBill(id, dto, req.user.id, req.user.role);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
   @ApiOperation({ summary: 'Delete bill' })
-  removeBill(@Param('id') id: string) {
-    return this.accountsService.removeBill(id);
+  removeBill(@Param('id') id: string, @Request() req: any) {
+    return this.accountsService.removeBill(id, req.user.role);
   }
 }

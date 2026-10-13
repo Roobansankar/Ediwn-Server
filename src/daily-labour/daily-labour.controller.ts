@@ -124,6 +124,7 @@ export class DailyLabourController {
     @Param('id') id: string,
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: any,
+    @Request() req: any,
   ) {
     const workers = body.workers ? JSON.parse(body.workers) : [];
 
@@ -136,6 +137,7 @@ export class DailyLabourController {
         workers: workers,
       },
       files,
+      req.user,
     );
   }
 

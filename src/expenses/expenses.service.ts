@@ -222,6 +222,18 @@ export class ExpensesService {
       throw new ForbiddenException('You can only edit your own expenses');
     }
 
+    // The submitter correcting a rejected expense sends it back for review:
+    // it returns to pending (which clears the old rejection remark below) and
+    // accounts is told once it is saved.
+    const resubmitted =
+      !!user &&
+      !canManageAnyExpense(user) &&
+      expense.status === ExpenseStatus.REJECTED &&
+      dto.status === undefined;
+    if (resubmitted) {
+      dto = { ...dto, status: ExpenseStatus.PENDING };
+    }
+
     // Handle new file uploads
     if (files && files.length > 0) {
       const receiptUrls = expense.receiptUrls || [];
@@ -329,14 +341,30 @@ export class ExpensesService {
       ].includes(dto.status)
     ) {
       const rejected = dto.status === ExpenseStatus.REJECTED;
+      // Include the expense date so the submitter knows which entry it is.
+      const expenseDay = new Date(expense.expenseDate);
+      const day = Number.isNaN(expenseDay.getTime())
+        ? String(expense.expenseDate)
+        : expenseDay.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
       await this.notifications.createForUser(expense.createdBy, {
         userId: user?.id,
         type: 'expense_status',
         title: rejected ? 'Expense Rejected' : 'Expense Approved',
         message: rejected
-          ? `Your expense "${expense.description}" (${expense.amount}) was rejected${dto.rejectionReason ? ` — ${dto.rejectionReason}` : ''}`
-          : `Your expense "${expense.description}" (${expense.amount}) was approved`,
+          ? `Your expense "${expense.description}" (${expense.amount}) dated ${day} was rejected${dto.rejectionReason ? ` — ${dto.rejectionReason}` : ''}`
+          : `Your expense "${expense.description}" (${expense.amount}) dated ${day} was approved`,
         link: '/dashboard/expenses',
+        entityId: expense.id,
+      });
+    }
+
+    if (resubmitted) {
+      await this.notifications.createForRole(Role.ACCOUNTS_MANAGER, {
+        userId: user?.id,
+        type: 'expense_resubmitted',
+        title: 'Rejected Expense Corrected',
+        message: `"${expense.description}" (${expense.amount}) was corrected after rejection and is waiting for review again.`,
+        link: '/dashboard/approvals?tab=expenses',
         entityId: expense.id,
       });
     }

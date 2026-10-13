@@ -51,7 +51,7 @@ export class SubcontractorBillsService {
         type: 'subcontractor_bill_created',
         title: 'New Subcontractor Bill',
         message: `${saved.billNumber} was created`,
-        link: '/dashboard/accounts/subcontractor-bills',
+        link: '/dashboard/approvals?tab=subBills',
         entityId: saved.id,
       });
     }

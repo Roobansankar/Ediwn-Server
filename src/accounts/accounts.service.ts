@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesInvoice } from './entities/sales-invoice.entity.js';
@@ -244,7 +244,7 @@ export class AccountsService {
         type: 'bill_created',
         title: 'New Bill Created',
         message: `${savedBill.billNumber} was created`,
-        link: '/dashboard/accounts/bills',
+        link: '/dashboard/approvals?tab=bills',
         entityId: savedBill.id,
       });
     }
@@ -324,12 +324,22 @@ export class AccountsService {
     });
   }
 
+  // Purchase team may only change or delete a bill while it is still pending;
+  // once accounts has acted on it, only admin / accounts can.
+  private assertPurchaseTeamCanChange(bill: PurchaseBill, role?: string) {
+    if (role === Role.PURCHASE_TEAM && bill.status !== BillStatus.PENDING) {
+      throw new ForbiddenException('This bill has already been reviewed by accounts and can no longer be changed');
+    }
+  }
+
   async updateBill(
     id: string,
     dto: CreateBillDto,
     userId?: string,
+    role?: string,
   ): Promise<PurchaseBill> {
     const bill = await this.findOneBill(id);
+    this.assertPurchaseTeamCanChange(bill, role);
     const { items, ...billData } = dto;
     Object.assign(bill, { ...billData, updatedBy: userId ?? '' });
     const savedBill = await this.billRepo.save(bill);
@@ -353,9 +363,10 @@ export class AccountsService {
     return this.findOneBill(id);
   }
 
-  async removeBill(id: string) {
+  async removeBill(id: string, role?: string) {
     const bill = await this.billRepo.findOne({ where: { id } });
     if (!bill) throw new NotFoundException('Bill not found');
+    this.assertPurchaseTeamCanChange(bill, role);
     bill.isDeleted = true;
     await this.billRepo.save(bill);
   }

@@ -14,6 +14,14 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 
 const PHOTO_SLOTS = [1, 2, 3, 4, 5] as const;
 
+// e.g. "12 Oct 2026", for notification messages.
+function formatDay(value: Date | string) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? String(value)
+    : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
 /**
  * Maps uploaded worker_{index}_{morning|evening}Photo{1..5} files onto the
  * worker's discrete morningPhotoNUrl/eveningPhotoNUrl columns.
@@ -166,14 +174,16 @@ export class DailyLabourService {
       // Let the site engineer who submitted this entry know which specific
       // trade was approved/rejected, and why (when a remark was given).
       if (report.createdById && (status === 'approved' || status === 'admin_approved' || status === 'rejected')) {
+        // Include the report date so the engineer knows which day's entry it is.
+        const day = formatDay(report.reportDate);
         await this.notifications.createForUser(report.createdById, {
           userId: actorUserId,
           type: 'daily_labour_worker_status',
           title: status === 'rejected' ? 'Trade Entry Rejected' : 'Trade Entry Approved',
           message:
             status === 'rejected'
-              ? `${worker.trade} entry was rejected${remarks ? ` — ${remarks}` : ''}`
-              : `${worker.trade} entry was approved`,
+              ? `${worker.trade} entry for ${day} was rejected${remarks ? ` — ${remarks}` : ''}`
+              : `${worker.trade} entry for ${day} was approved`,
           link: `/dashboard/daily-labour/${reportId}`,
           entityId: workerId,
         });
@@ -234,7 +244,7 @@ export class DailyLabourService {
           type: 'daily_labour_week_status',
           title: 'Week Approved by Accounts',
           message: `${entries} approved by accounts — ${where}`,
-          link: '/dashboard/approvals',
+          link: '/dashboard/approvals?tab=daily',
         });
       }
       if (actor.role === Role.ADMIN && status === 'admin_approved') {
@@ -243,7 +253,7 @@ export class DailyLabourService {
           type: 'daily_labour_week_status',
           title: 'Week Approved by Admin',
           message: `${entries} given final admin approval — ${where}`,
-          link: '/dashboard/approvals',
+          link: '/dashboard/approvals?tab=daily',
         });
       }
     }
@@ -274,8 +284,15 @@ export class DailyLabourService {
     id: string,
     dto: CreateDailyLabourReportDto,
     files?: Express.Multer.File[],
+    user?: { id: string; role: string; name?: string },
   ) {
     const report = await this.findOne(id);
+    // A site engineer correcting a report that had a rejected trade sends it
+    // back for review; accounts is told once it is saved.
+    const hadRejection =
+      report.status === 'rejected' || (report.workers || []).some((w) => w.status === 'rejected');
+    const resubmitted =
+      hadRejection && !!user && user.role !== Role.ADMIN && user.role !== Role.ACCOUNTS_MANAGER;
 
     report.projectId = dto.projectId;
     report.reportDate = new Date(dto.reportDate);
@@ -309,6 +326,18 @@ export class DailyLabourService {
     const updated = await this.findOne(id);
     updated.status = this.computeReportStatus(updated.workers);
     await this.reportRepo.save(updated);
+
+    if (resubmitted) {
+      const reportDate = new Date(updated.reportDate).toISOString().split('T')[0];
+      await this.notifications.createForRole(Role.ACCOUNTS_MANAGER, {
+        userId: user?.id,
+        type: 'daily_labour_resubmitted',
+        title: 'Rejected Daily Labour Corrected',
+        message: `${updated.createdBy?.name || 'A site engineer'} corrected the daily labour report for ${updated.project?.name || 'a project'} (${reportDate}) after rejection. It is waiting for review again.`,
+        link: '/dashboard/approvals?tab=daily',
+        entityId: updated.id,
+      });
+    }
 
     return updated;
   }
