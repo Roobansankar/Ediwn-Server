@@ -40,6 +40,11 @@ export class SubcontractorPaymentRequest {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
+  // Final amount admin approves for payment; accounts pays this instead of
+  // the requested amount when set.
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  approvedAmount: number | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 

@@ -193,7 +193,11 @@ export class PaymentsService {
       type: 'payment_recorded',
       title: 'Payment Recorded',
       message: `A payment of ${payment.amount} was recorded${context}.`,
-      link: '/dashboard/payments',
+      // Purchase team can't open /dashboard/payments; use their own pages.
+      link:
+        payment.subcontractWorkOrderId || payment.subcontractorPaymentRequestId
+          ? '/dashboard/subcontractor-payments'
+          : '/dashboard/advance',
       entityId: payment.id,
     });
 

@@ -97,11 +97,22 @@ export class SubcontractorBillsController {
     return this.service.getBillTrail(id);
   }
 
+  @Patch(':id/document-check')
+  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
+  @ApiOperation({ summary: 'Tick the Enquiry (SCR) or Work Order as checked for a subcontractor bill' })
+  markDocumentChecked(@Param('id') id: string, @Body('document') document: string) {
+    return this.service.markDocumentChecked(id, document);
+  }
+
   @Patch(':id/status')
   @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER)
   @ApiOperation({ summary: 'Update subcontractor bill status' })
-  updateStatus(@Param('id') id: string, @Body('status') status: BillStatus) {
-    return this.service.updateStatus(id, status);
+  updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: BillStatus,
+    @Request() req: any,
+  ) {
+    return this.service.updateStatus(id, status, req.user);
   }
 
   @Put(':id')

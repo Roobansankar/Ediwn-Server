@@ -63,6 +63,14 @@ export class SubcontractorBill {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   paidAmount: number;
 
+  // Accounts ticks these after reviewing each document on the bill page;
+  // both are needed before the bill can be Accounts Approved.
+  @Column({ type: 'boolean', default: false })
+  enquiryChecked: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  woChecked: boolean;
+
   @Column({ type: 'date', nullable: true })
   billDate: Date;
 

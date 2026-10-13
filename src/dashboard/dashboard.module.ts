@@ -15,6 +15,7 @@ import { MaterialReceived } from '../material-received/entities/material-receive
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
+import { SubcontractorBill } from '../subcontractor-bills/entities/subcontractor-bill.entity.js';
 import { LabourPaymentsModule } from '../labour-payments/labour-payments.module.js';
 import { ExpensePaymentsModule } from '../expense-payments/expense-payments.module.js';
 
@@ -34,6 +35,7 @@ import { ExpensePaymentsModule } from '../expense-payments/expense-payments.modu
       MaterialReceived,
       WeeklyTimesheet,
       SubcontractWorkOrder,
+      SubcontractorBill,
     ]),
     LabourPaymentsModule,
     ExpensePaymentsModule,

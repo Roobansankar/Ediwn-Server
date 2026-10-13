@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual, LessThanOrEqual, Not, In, Brackets } from 'typeorm';
+import { Repository, MoreThanOrEqual, LessThanOrEqual, In, Brackets } from 'typeorm';
 import { Project } from '../projects/entities/project.entity.js';
 import { ProjectMilestone } from '../projects/entities/project-milestone.entity.js';
 import { AttendanceLog } from '../projects/entities/attendance-log.entity.js';
@@ -14,12 +14,13 @@ import { PurchaseEnquiry } from '../purchase-enquiries/entities/purchase-enquiry
 import { MaterialReceived } from '../material-received/entities/material-received.entity.js';
 import { WeeklyTimesheet } from '../timesheet-attendance/entities/weekly-timesheet.entity.js';
 import { SubcontractWorkOrder } from '../subcontract-work-orders/entities/subcontract-work-order.entity.js';
+import { SubcontractorBill } from '../subcontractor-bills/entities/subcontractor-bill.entity.js';
 import { LabourPaymentsService } from '../labour-payments/labour-payments.service.js';
 import { ExpensePaymentsService } from '../expense-payments/expense-payments.service.js';
 import {
+  BillStatus,
   InvoiceStatus,
   PurchaseOrderStatus,
-  SubcontractWorkOrderStatus,
 } from '../common/enums.js';
 
 function roundMoney(value: number) {
@@ -49,6 +50,8 @@ export class DashboardService {
     private tsRepo: Repository<WeeklyTimesheet>,
     @InjectRepository(SubcontractWorkOrder)
     private swoRepo: Repository<SubcontractWorkOrder>,
+    @InjectRepository(SubcontractorBill)
+    private subBillRepo: Repository<SubcontractorBill>,
     private labourPayments: LabourPaymentsService,
     private expensePayments: ExpensePaymentsService,
   ) {}
@@ -263,31 +266,45 @@ export class DashboardService {
     // payment, plus payments recorded there that are still 'pending'. An
     // entry leaves the unpaid list the moment it's attached to a payment,
     // so nothing is counted twice.
-    const swosForPayables = await this.swoRepo.find({
-      where: {
-        isDeleted: false,
-        status: Not(SubcontractWorkOrderStatus.REJECTED),
-      },
+    // Sub Contractor: only bills Admin has approved (final approval), less
+    // what has been paid. Grouped by work order like Material groups by PO,
+    // so payments made against the WO (payment requests) count too.
+    const approvedSubBills = await this.subBillRepo.find({
+      where: { isDeleted: false, status: BillStatus.APPROVED },
     });
-    const swoPaidRows = swosForPayables.length
+    const subGroupOf = (woId?: string | null, billId?: string | null) =>
+      woId ? `wo:${woId}` : billId ? `bill:${billId}` : null;
+    const subOwedByGroup = new Map<string, number>();
+    for (const b of approvedSubBills) {
+      const key = subGroupOf(b.subcontractWorkOrderId, b.id)!;
+      subOwedByGroup.set(key, (subOwedByGroup.get(key) || 0) + Number(b.amount || 0));
+    }
+    const subBillById = new Map(approvedSubBills.map((b) => [b.id, b]));
+    const subWoIds = [...new Set(approvedSubBills.map((b) => b.subcontractWorkOrderId).filter(Boolean))];
+    const subBillIds = approvedSubBills.map((b) => b.id);
+    const subPayments = subWoIds.length || subBillIds.length
       ? await this.paymentRepo
           .createQueryBuilder('p')
-          .select('p.subcontractWorkOrderId', 'subcontractWorkOrderId')
-          .addSelect('SUM(p.amount)', 'total')
+          .select(['p.id', 'p.amount', 'p.subcontractWorkOrderId', 'p.subcontractorBillId'])
           .where('p.isDeleted = false')
-          .andWhere('p.subcontractWorkOrderId IN (:...ids)', {
-            ids: swosForPayables.map((swo) => swo.id),
-          })
-          .groupBy('p.subcontractWorkOrderId')
-          .getRawMany<{ subcontractWorkOrderId: string; total: string }>()
+          .andWhere(
+            new Brackets((qb) => {
+              if (subWoIds.length) qb.orWhere('p.subcontractWorkOrderId IN (:...subWoIds)', { subWoIds });
+              if (subBillIds.length) qb.orWhere('p.subcontractorBillId IN (:...subBillIds)', { subBillIds });
+            }),
+          )
+          .getMany()
       : [];
-    const swoPaidById = new Map(
-      swoPaidRows.map((r) => [r.subcontractWorkOrderId, Number(r.total)]),
-    );
-    const swoBalances = swosForPayables
-      .map(
-        (swo) => Number(swo.totalAmount || 0) - (swoPaidById.get(swo.id) || 0),
-      )
+    const subPaidByGroup = new Map<string, number>();
+    for (const p of subPayments) {
+      const woId = p.subcontractWorkOrderId
+        || (p.subcontractorBillId ? subBillById.get(p.subcontractorBillId)?.subcontractWorkOrderId : null);
+      const key = subGroupOf(woId, p.subcontractorBillId);
+      if (!key || !subOwedByGroup.has(key)) continue;
+      subPaidByGroup.set(key, (subPaidByGroup.get(key) || 0) + Number(p.amount || 0));
+    }
+    const swoBalances = [...subOwedByGroup.entries()]
+      .map(([key, owed]) => owed - (subPaidByGroup.get(key) || 0))
       .filter((balance) => balance > 0);
 
     const [

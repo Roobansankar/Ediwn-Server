@@ -128,10 +128,24 @@ export class AdvanceRequestsService {
       throw new BadRequestException('Request already responded');
     }
 
+    // Admin fixes the final amount accounts will pay (defaults to the
+    // requested amount).
+    const approvedAmount =
+      dto.action === 'admin_approved'
+        ? Number(dto.approvedAmount ?? request.amount)
+        : null;
+    const rs = (n: number | string) =>
+      `Rs. ${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+    const finalText =
+      approvedAmount !== null && approvedAmount !== Number(request.amount)
+        ? ` Final amount to pay: ${rs(approvedAmount)} (requested ${rs(request.amount)}).`
+        : '';
+
     await this.repo.update(id, {
       status: dto.action,
       respondedById: userId,
       respondedAt: new Date(),
+      ...(approvedAmount !== null ? { approvedAmount } : {}),
     });
 
     const titles: Record<string, string> = {
@@ -141,7 +155,7 @@ export class AdvanceRequestsService {
     };
     const messages: Record<string, string> = {
       accepted: `Your vendor payment request for ${request.amount} was accepted by accounts — awaiting final admin approval.`,
-      admin_approved: `Your vendor payment request for ${request.amount} received final admin approval.`,
+      admin_approved: `Your vendor payment request for ${rs(request.amount)} received final admin approval.${finalText || ` Final amount to pay: ${rs(approvedAmount ?? request.amount)}.`}`,
       rejected: `Your vendor payment request for ${request.amount} was rejected.`,
     };
     await this.notifications.createForUser(request.requestedById, {
@@ -167,7 +181,7 @@ export class AdvanceRequestsService {
         userId,
         type: 'advance_request_admin_approved',
         title: 'Vendor Payment Approved by Admin',
-        message: `A vendor payment of ${request.amount} received final admin approval and is ready to be paid.`,
+        message: `A vendor payment of ${rs(request.amount)} received final admin approval and is ready to be paid.${finalText || ` Final amount to pay: ${rs(approvedAmount ?? request.amount)}.`}`,
         link: '/dashboard/payments?tab=vendor',
         entityId: request.id,
       });

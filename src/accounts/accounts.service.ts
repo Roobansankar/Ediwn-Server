@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { SalesInvoice } from './entities/sales-invoice.entity.js';
 import { InvoiceItem } from './entities/invoice-item.entity.js';
 import { PurchaseBill } from './entities/purchase-bill.entity.js';
@@ -253,6 +253,12 @@ export class AccountsService {
   }
 
   async findOneBill(id: string): Promise<PurchaseBill> {
+    const [withPo] = await this.attachPoPayments([await this.loadBill(id)]);
+    return withPo;
+  }
+
+  // Bill as stored, without PO payments added - use before saving it.
+  private async loadBill(id: string): Promise<PurchaseBill> {
     const bill = await this.billRepo.findOne({
       where: { id },
       relations: [
@@ -266,6 +272,30 @@ export class AccountsService {
     });
     if (!bill) throw new NotFoundException('Bill not found');
     return bill;
+  }
+
+  // Vendor payments made through a vendor payment request are recorded
+  // against the PO, not the bill. Count those PO payments on the PO's bills
+  // too (payments list + paidAmount), so the Bills page, bill detail and
+  // reports show what the vendor has actually been paid. Not persisted.
+  private async attachPoPayments(bills: PurchaseBill[]): Promise<PurchaseBill[]> {
+    const poIds = [...new Set(bills.map((b) => b.purchaseOrderId).filter(Boolean))] as string[];
+    if (!poIds.length) return bills;
+    const poPayments = await this.paymentRepo.find({
+      where: { purchaseOrderId: In(poIds), purchaseBillId: IsNull() },
+      order: { paymentDate: 'ASC' },
+    });
+    if (!poPayments.length) return bills;
+    for (const bill of bills) {
+      if (!bill.purchaseOrderId) continue;
+      const extra = poPayments.filter((p) => p.purchaseOrderId === bill.purchaseOrderId);
+      if (!extra.length) continue;
+      bill.payments = [...(bill.payments || []), ...extra];
+      bill.paidAmount =
+        Number(bill.paidAmount || 0) +
+        extra.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    }
+    return bills;
   }
 
   // Full procurement trail for one bill, walking backwards from its PO:
@@ -317,7 +347,7 @@ export class AccountsService {
   }
 
   async findBills() {
-    return this.billRepo.find({
+    const bills = await this.billRepo.find({
       where: { isDeleted: false },
       relations: [
         'vendor',
@@ -329,6 +359,7 @@ export class AccountsService {
       ],
       order: { createdAt: 'DESC' },
     });
+    return this.attachPoPayments(bills);
   }
 
   // Purchase team may only change or delete a bill while it is still pending;
@@ -345,7 +376,7 @@ export class AccountsService {
     userId?: string,
     role?: string,
   ): Promise<PurchaseBill> {
-    const bill = await this.findOneBill(id);
+    const bill = await this.loadBill(id);
     this.assertPurchaseTeamCanChange(bill, role);
     const { items, ...billData } = dto;
     Object.assign(bill, { ...billData, updatedBy: userId ?? '' });

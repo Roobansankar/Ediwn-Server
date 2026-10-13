@@ -55,6 +55,10 @@ export class Subcontractor {
   @Column({ nullable: true })
   branch: string;
 
+  // Default payment terms for this subcontractor: advance, credit or full_payment.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  paymentTerms: string | null;
+
   @Column({ default: false })
   isDeleted: boolean;
 
