@@ -117,8 +117,9 @@ export class BillsController {
   updateBillStatus(
     @Param('id') id: string,
     @Body('status') status: BillStatus,
+    @Request() req: any,
   ) {
-    return this.accountsService.updateBillStatus(id, status);
+    return this.accountsService.updateBillStatus(id, status, req.user);
   }
 
   @Post('../purchase-orders/:id/convert')

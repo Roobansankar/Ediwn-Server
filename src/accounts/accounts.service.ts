@@ -280,11 +280,14 @@ export class AccountsService {
     let materialRequirement: PurchaseEnquiry | null = null;
     let vendorQuotation: VendorQuotation | null = null;
     let materialReceived: MaterialReceived[] = [];
+    // Every vendor's quotation against the same MR, for the enquiry comparison.
+    let quotations: VendorQuotation[] = [];
 
     if (po?.materialRequirementNo) {
       materialRequirement = await this.purchaseEnquiryRepo.findOne({
         where: { enquiryNo: po.materialRequirementNo, isDeleted: false },
-        relations: ['project'],
+        // creator = the site engineer who raised the MR, shown on the bill page.
+        relations: ['project', 'creator'],
       });
 
       if (materialRequirement) {
@@ -296,6 +299,10 @@ export class AccountsService {
           },
           order: { createdAt: 'DESC' },
         });
+        quotations = await this.vendorQuotationRepo.find({
+          where: { materialRequirementId: materialRequirement.id, isDeleted: false },
+          order: { createdAt: 'ASC' },
+        });
       }
     }
 
@@ -306,7 +313,7 @@ export class AccountsService {
       });
     }
 
-    return { bill, materialRequirement, vendorQuotation, materialReceived };
+    return { bill, materialRequirement, vendorQuotation, quotations, materialReceived };
   }
 
   async findBills() {
@@ -387,9 +394,14 @@ export class AccountsService {
     return this.billRepo.save(bill);
   }
 
-  async updateBillStatus(id: string, status: BillStatus) {
+  async updateBillStatus(id: string, status: BillStatus, actor?: { id: string; role: string }) {
     const bill = await this.billRepo.findOne({ where: { id } });
     if (!bill) throw new NotFoundException('Bill not found');
+
+    // Approved is the final admin approval; accounts stops at Accounts Approved.
+    if (status === BillStatus.APPROVED && actor && actor.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only admin can give final approval');
+    }
 
     // Gate: a bill can only be accounts-approved once all three documents
     // have been opened and checked.
@@ -405,9 +417,54 @@ export class AccountsService {
       }
     }
 
+    const previous = bill.status;
     bill.status = status;
     if (status === BillStatus.APPROVED) bill.paidAt = new Date();
-    return this.billRepo.save(bill);
+    const saved = await this.billRepo.save(bill);
+
+    // Hand-offs between accounts and admin.
+    if (actor && previous !== status) {
+      if (actor.role === Role.ACCOUNTS_MANAGER && status === BillStatus.ADMIN_APPROVED) {
+        await this.notifications.createForRole(Role.ADMIN, {
+          userId: actor.id,
+          type: 'bill_accounts_approved',
+          title: 'Bill Awaiting Your Approval',
+          message: `${bill.billNumber} (${bill.amount}) was approved by accounts and needs your final approval.`,
+          link: '/dashboard/approvals?tab=bills',
+          entityId: bill.id,
+        });
+      }
+      // Purchase team (whoever raised the bill, or the whole team if unknown)
+      // hears about every approval or rejection, by accounts or admin.
+      if ([BillStatus.ADMIN_APPROVED, BillStatus.APPROVED, BillStatus.REJECTED].includes(status)) {
+        const who = actor.role === Role.ADMIN ? 'admin' : 'accounts';
+        const outcome = status === BillStatus.REJECTED ? 'rejected' : 'approved';
+        const input = {
+          userId: actor.id,
+          type: `bill_${outcome}_for_purchase`,
+          title: status === BillStatus.REJECTED ? 'Purchase Bill Rejected' : 'Purchase Bill Approved',
+          message: `${bill.billNumber} (${bill.amount}) was ${outcome} by ${who}${status === BillStatus.ADMIN_APPROVED ? ' and is waiting for admin approval' : ''}.`,
+          link: `/dashboard/accounts/bills/${bill.id}`,
+          entityId: bill.id,
+        };
+        if (bill.createdBy) await this.notifications.createForUser(bill.createdBy, input);
+        else await this.notifications.createForRole(Role.PURCHASE_TEAM, input);
+      }
+
+      if (actor.role === Role.ADMIN && (status === BillStatus.APPROVED || status === BillStatus.REJECTED)) {
+        const approved = status === BillStatus.APPROVED;
+        await this.notifications.createForRole(Role.ACCOUNTS_MANAGER, {
+          userId: actor.id,
+          type: approved ? 'bill_admin_approved' : 'bill_admin_rejected',
+          title: approved ? 'Bill Approved by Admin' : 'Bill Rejected by Admin',
+          message: `${bill.billNumber} (${bill.amount}) was ${approved ? 'given final approval' : 'rejected'} by admin.`,
+          link: '/dashboard/approvals?tab=bills',
+          entityId: bill.id,
+        });
+      }
+    }
+
+    return saved;
   }
 
   // --- BOQ ---
