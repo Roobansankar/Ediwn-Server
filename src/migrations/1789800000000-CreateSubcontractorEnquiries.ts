@@ -32,19 +32,25 @@ export class CreateSubcontractorEnquiries1789800000000
       )
     `);
     await queryRunner.query(`
-      ALTER TABLE "subcontractor_enquiries"
-      ADD CONSTRAINT "FK_subcontractor_enquiries_project"
-      FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_subcontractor_enquiries_project') THEN
+          ALTER TABLE "subcontractor_enquiries" ADD CONSTRAINT "FK_subcontractor_enquiries_project" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
     await queryRunner.query(`
-      ALTER TABLE "subcontractor_enquiries"
-      ADD CONSTRAINT "FK_subcontractor_enquiries_work_category"
-      FOREIGN KEY ("workCategoryId") REFERENCES "work_categories"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_subcontractor_enquiries_work_category') THEN
+          ALTER TABLE "subcontractor_enquiries" ADD CONSTRAINT "FK_subcontractor_enquiries_work_category" FOREIGN KEY ("workCategoryId") REFERENCES "work_categories"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
     await queryRunner.query(`
-      ALTER TABLE "subcontractor_enquiries"
-      ADD CONSTRAINT "FK_subcontractor_enquiries_subcontractor"
-      FOREIGN KEY ("subcontractorId") REFERENCES "subcontractors"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_subcontractor_enquiries_subcontractor') THEN
+          ALTER TABLE "subcontractor_enquiries" ADD CONSTRAINT "FK_subcontractor_enquiries_subcontractor" FOREIGN KEY ("subcontractorId") REFERENCES "subcontractors"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
   }
 
