@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsEmail, IsIn, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class CreateVendorDto {
   @ApiProperty({ example: 'ABC Constructions' })
@@ -22,6 +23,7 @@ export class CreateVendorDto {
   state?: string;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @ValidateIf((o) => o.contactEmail !== '' && o.contactEmail != null)
   @IsEmail()
   contactEmail?: string;

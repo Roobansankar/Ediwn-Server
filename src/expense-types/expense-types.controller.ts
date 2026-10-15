@@ -24,7 +24,6 @@ export class ExpenseTypesController {
   constructor(private readonly expenseTypesService: ExpenseTypesService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.SITE_ENGINEER)
   @ApiOperation({ summary: 'Create Expense Type' })
   create(@Body() dto: CreateExpenseTypeDto) {
     return this.expenseTypesService.create(dto);
