@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AiChatsModule } from './ai-chats/ai-chats.module.js';
+import { AiChat } from './ai-chats/entities/ai-chat.entity.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module.js';
@@ -131,6 +133,7 @@ function getBooleanConfig(
         password: configService.get<string>('DATABASE_PASSWORD', '8220'),
         database: configService.get<string>('DATABASE_NAME', 'edwin_erp'),
         entities: [
+          AiChat,
           User,
           Vendor,
           Project,
@@ -196,6 +199,7 @@ function getBooleanConfig(
       }),
     }),
     AuthModule,
+    AiChatsModule,
     UsersModule,
     VendorsModule,
     ProjectsModule,
