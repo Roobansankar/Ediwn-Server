@@ -18,6 +18,8 @@ export type UnpaidLabourWeekSummary = {
   weekEnd: string;
   totalAmount: number;
   entryCount: number;
+  projectNames: string[];
+  teamNames: string[];
 };
 
 // Monday of the week containing `date`, matching Postgres's
@@ -54,8 +56,8 @@ function entryAmount(worker: DailyWorker): number {
   );
 }
 
-// Trade entries that can be paid: accounts-approved, or given final approval by admin.
-const PAYABLE_TRADE_STATUSES = ['approved', 'admin_approved'];
+// Accounts approval is an intermediate stage; only final admin approval is payable.
+const PAYABLE_TRADE_STATUSES = ['admin_approved'];
 
 @Injectable()
 export class LabourPaymentsService {
@@ -77,6 +79,8 @@ export class LabourPaymentsService {
       .createQueryBuilder('w')
       .innerJoinAndSelect('w.report', 'r')
       .leftJoinAndSelect('w.tradeRel', 'trade')
+      .leftJoinAndSelect('trade.team', 'team')
+      .leftJoinAndSelect('r.project', 'project')
       .innerJoin('r.createdBy', 'u')
       .addSelect(['u.id', 'u.name'])
       .where('w.status IN (:...statuses)', { statuses: PAYABLE_TRADE_STATUSES })
@@ -96,9 +100,13 @@ export class LabourPaymentsService {
 
       const existing = groups.get(key);
       const amount = entryAmount(w);
+      const projectName = report.project?.name;
+      const teamName = w.tradeRel?.team?.name;
       if (existing) {
         existing.totalAmount += amount;
         existing.entryCount += 1;
+        if (projectName && !existing.projectNames.includes(projectName)) existing.projectNames.push(projectName);
+        if (teamName && !existing.teamNames.includes(teamName)) existing.teamNames.push(teamName);
       } else {
         groups.set(key, {
           userId: report.createdById,
@@ -107,6 +115,8 @@ export class LabourPaymentsService {
           weekEnd,
           totalAmount: amount,
           entryCount: 1,
+          projectNames: projectName ? [projectName] : [],
+          teamNames: teamName ? [teamName] : [],
         });
       }
     }
