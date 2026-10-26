@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   Injectable,
   NotFoundException,
@@ -105,8 +106,10 @@ export class LabourPaymentsService {
       if (existing) {
         existing.totalAmount += amount;
         existing.entryCount += 1;
-        if (projectName && !existing.projectNames.includes(projectName)) existing.projectNames.push(projectName);
-        if (teamName && !existing.teamNames.includes(teamName)) existing.teamNames.push(teamName);
+        if (projectName && !existing.projectNames.includes(projectName))
+          existing.projectNames.push(projectName);
+        if (teamName && !existing.teamNames.includes(teamName))
+          existing.teamNames.push(teamName);
       } else {
         groups.set(key, {
           userId: report.createdById,
@@ -129,65 +132,133 @@ export class LabourPaymentsService {
   }
 
   async create(dto: CreateLabourPaymentDto, actorUserId: string) {
-    const workers = await this.workerRepo
-      .createQueryBuilder('w')
-      .innerJoinAndSelect('w.report', 'r')
-      .leftJoinAndSelect('w.tradeRel', 'trade')
-      .where('r.createdById = :userId', { userId: dto.userId })
-      .andWhere('w.status IN (:...statuses)', { statuses: PAYABLE_TRADE_STATUSES })
-      .andWhere('w.labourPaymentId IS NULL')
-      .andWhere('r.isDeleted = false')
-      .andWhere('r.reportDate BETWEEN :weekStart AND :weekEnd', {
-        weekStart: dto.weekStart,
-        weekEnd: dto.weekEnd,
-      })
-      .getMany();
-
-    if (workers.length === 0) {
-      throw new BadRequestException(
-        'No admin-approved, unpaid trade entries found for this site engineer in the selected week',
-      );
+    const weekStart = mondayOf(new Date(dto.weekStart));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    if (
+      toDateStr(weekStart) !== dto.weekStart ||
+      toDateStr(weekEnd) !== dto.weekEnd
+    ) {
+      throw new BadRequestException('Select a Monday-to-Sunday week');
     }
-
-    const user = await this.usersRepo.findOne({ where: { id: dto.userId } });
-    if (!user) throw new NotFoundException('User not found');
-
-    // The payment always covers the exact sum of the trade entries it
-    // attaches — computed here rather than trusted from the client — so
-    // the amount can never drift from what's actually being marked paid.
-    const amount = workers.reduce((sum, w) => sum + entryAmount(w), 0);
-
-    const payment = this.repo.create({
-      userId: dto.userId,
-      userName: user.name,
-      weekStart: new Date(dto.weekStart),
-      weekEnd: new Date(dto.weekEnd),
-      amount,
-      paymentDate: new Date(dto.paymentDate),
-      status: dto.status || 'pending',
-      notes: dto.notes || null,
-      createdById: actorUserId,
+    const saved = await this.repo.manager.transaction(async (manager) => {
+      // Serialize payments for the engineer, including concurrent first payments.
+      const user = await manager.findOne(User, {
+        where: { id: dto.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new NotFoundException('User not found');
+      let payment: LabourPayment;
+      let workerIds: string[] = [];
+      if (dto.paymentId) {
+        const existing = await manager.findOne(LabourPayment, {
+          where: { id: dto.paymentId, isDeleted: false },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!existing) throw new NotFoundException('Payment not found');
+        if (
+          existing.userId !== dto.userId ||
+          (existing.weekStart instanceof Date
+            ? toDateStr(existing.weekStart)
+            : String(existing.weekStart).slice(0, 10)) !== dto.weekStart ||
+          (existing.weekEnd instanceof Date
+            ? toDateStr(existing.weekEnd)
+            : String(existing.weekEnd).slice(0, 10)) !== dto.weekEnd
+        ) {
+          throw new BadRequestException(
+            'Payment does not belong to the selected engineer and week',
+          );
+        }
+        payment = existing;
+      } else {
+        const workers = await manager
+          .getRepository(DailyWorker)
+          .createQueryBuilder('w')
+          .innerJoinAndSelect('w.report', 'r')
+          .leftJoinAndSelect('w.tradeRel', 'trade')
+          .where('r.createdById = :userId', { userId: dto.userId })
+          .andWhere('w.status IN (:...statuses)', {
+            statuses: PAYABLE_TRADE_STATUSES,
+          })
+          .andWhere('w.labourPaymentId IS NULL')
+          .andWhere('r.isDeleted = false')
+          .andWhere('r.reportDate BETWEEN :weekStart AND :weekEnd', {
+            weekStart: dto.weekStart,
+            weekEnd: dto.weekEnd,
+          })
+          .getMany();
+        if (!workers.length)
+          throw new BadRequestException(
+            'No admin-approved, unpaid trade entries found for this site engineer in the selected week',
+          );
+        workerIds = workers.map((worker) => worker.id);
+        payment = manager.create(LabourPayment, {
+          userId: dto.userId,
+          userName: user.name,
+          weekStart: new Date(dto.weekStart),
+          weekEnd: new Date(dto.weekEnd),
+          amount:
+            Math.round(
+              workers.reduce((sum, worker) => sum + entryAmount(worker), 0) *
+                100,
+            ) / 100,
+          paymentDate: new Date(dto.paymentDate),
+          status: 'pending',
+          paymentHistory: [],
+          notes: dto.notes || null,
+          createdById: actorUserId,
+        });
+      }
+      const history = payment.paymentHistory || [];
+      const paid = history.length
+        ? history.reduce((sum, entry) => sum + Number(entry.amount), 0)
+        : payment.status === 'paid'
+          ? Number(payment.amount)
+          : 0;
+      const balance = Math.round((Number(payment.amount) - paid) * 100) / 100;
+      const amount = dto.amount ?? balance;
+      if (!Number.isFinite(amount) || amount <= 0 || amount > balance)
+        throw new BadRequestException(
+          'Payment amount must be positive and cannot exceed the remaining balance',
+        );
+      // Legacy pending creation remains supported; recording money is append-only.
+      if (dto.status !== 'pending') {
+        payment.paymentHistory = [
+          ...history,
+          {
+            id: randomUUID(),
+            amount,
+            paymentDate: dto.paymentDate,
+            paymentMode: dto.paymentMode || 'cash',
+            referenceNumber: dto.referenceNumber?.trim() || null,
+            notes: dto.notes?.trim() || null,
+            createdById: actorUserId,
+          },
+        ];
+        payment.status =
+          Math.round((paid + amount) * 100) >=
+          Math.round(Number(payment.amount) * 100)
+            ? 'paid'
+            : 'partial';
+        payment.paymentDate = new Date(dto.paymentDate);
+      }
+      const result = await manager.save(LabourPayment, payment);
+      if (workerIds.length)
+        await manager.update(
+          DailyWorker,
+          { id: In(workerIds) },
+          { labourPaymentId: result.id },
+        );
+      return result;
     });
-    const saved = await this.repo.save(payment);
-
-    await this.workerRepo.update(
-      { id: In(workers.map((w) => w.id)) },
-      { labourPaymentId: saved.id },
-    );
-
-    const weekLabel = `${dto.weekStart} to ${dto.weekEnd}`;
     await this.notifications.createForUser(dto.userId, {
       userId: actorUserId,
       type: 'labour_payment_recorded',
-      title:
-        saved.status === 'paid'
-          ? 'Labour Payment Made'
-          : 'Labour Payment Recorded',
-      message: `${workers.length} trade ${workers.length > 1 ? 'entries' : 'entry'} totaling ${amount} for the week of ${weekLabel} ${saved.status === 'paid' ? 'were paid' : 'were recorded for payment'}.`,
+      title: 'Labour Payment Recorded',
+      message: `Labour payment recorded for ${dto.weekStart} to ${dto.weekEnd}.`,
       link: '/dashboard/new',
       entityId: saved.id,
     });
-
     return saved;
   }
 
@@ -203,6 +274,11 @@ export class LabourPaymentsService {
       where: { id, isDeleted: false },
     });
     if (!payment) throw new NotFoundException('Payment not found');
+    if ((payment.paymentHistory || []).length) {
+      throw new BadRequestException(
+        'Record the remaining amount as a payment instead of changing its status',
+      );
+    }
     payment.status = status;
     const saved = await this.repo.save(payment);
 

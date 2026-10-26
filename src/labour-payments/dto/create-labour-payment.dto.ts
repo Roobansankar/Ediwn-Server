@@ -1,4 +1,6 @@
 import {
+  IsNumber,
+  Min,
   IsUUID,
   IsDateString,
   IsIn,
@@ -8,6 +10,23 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLabourPaymentDto {
+  @IsUUID()
+  @IsOptional()
+  paymentId?: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @IsOptional()
+  amount?: number;
+
+  @IsIn(['cash', 'upi', 'rtgs', 'cheque', 'bank_transfer'])
+  @IsOptional()
+  paymentMode?: string;
+
+  @IsString()
+  @IsOptional()
+  referenceNumber?: string;
+
   @ApiProperty({ example: 'uuid-of-site-engineer' })
   @IsUUID()
   userId: string;
