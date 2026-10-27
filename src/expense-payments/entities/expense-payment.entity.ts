@@ -6,15 +6,17 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-// One record = one week's lump-sum reimbursement paid to one staff member,
-// covering every admin-approved expense they submitted that week. Individual
-// Expense rows get their `expensePaymentId` set once they're attached to a
-// record here, so the same claim can never be paid twice.
-//
-// `userName` is a snapshot taken at creation time (same pattern as
-// Payment.payeeName elsewhere in this app) rather than a live join to the
-// User table, so this record stays accurate even if the user's account is
-// later renamed or deactivated.
+// A weekly expense liability with an append-only installment history.
+export type ExpensePaymentEntry = {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMode: string;
+  referenceNumber: string | null;
+  notes: string | null;
+  createdById: string;
+};
+
 @Entity('expense_payments')
 export class ExpensePayment {
   @PrimaryGeneratedColumn('uuid')
@@ -34,6 +36,9 @@ export class ExpensePayment {
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  paymentHistory: ExpensePaymentEntry[];
 
   @Column({ type: 'date' })
   paymentDate: Date;

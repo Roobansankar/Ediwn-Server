@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   Injectable,
   NotFoundException,
@@ -20,6 +21,20 @@ export type UnpaidWeekSummary = {
   totalAmount: number;
   expenseCount: number;
 };
+
+function mondayOf(date: Date): Date {
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  const day = d.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d;
+}
+
+function toDateStr(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
 
 @Injectable()
 export class ExpensePaymentsService {
@@ -70,71 +85,142 @@ export class ExpensePaymentsService {
     return rows.map((r) => ({
       userId: r.userId,
       userName: r.userName,
-      weekStart: r.weekStart,
-      weekEnd: r.weekEnd,
+      weekStart: toDateStr(new Date(r.weekStart)),
+      weekEnd: toDateStr(new Date(r.weekEnd)),
       totalAmount: Number(r.totalAmount),
       expenseCount: Number(r.expenseCount),
     }));
   }
 
   async create(dto: CreateExpensePaymentDto, actorUserId: string) {
-    const expenses = await this.expenseRepo
-      .createQueryBuilder('e')
-      .where('e.createdBy = :userId', { userId: dto.userId })
-      .andWhere('e.status = :status', { status: ExpenseStatus.ADMIN_APPROVED })
-      .andWhere('e.isDeleted = false')
-      .andWhere('e.expensePaymentId IS NULL')
-      .andWhere('e.expenseDate BETWEEN :weekStart AND :weekEnd', {
-        weekStart: dto.weekStart,
-        weekEnd: dto.weekEnd,
-      })
-      .getMany();
-
-    if (expenses.length === 0) {
-      throw new BadRequestException(
-        'No admin-approved, unpaid expenses found for this user in the selected week',
-      );
+    const weekStart = mondayOf(new Date(dto.weekStart));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    if (
+      toDateStr(weekStart) !== dto.weekStart ||
+      toDateStr(weekEnd) !== dto.weekEnd
+    ) {
+      throw new BadRequestException('Select a Monday-to-Sunday week');
     }
+    const saved = await this.repo.manager.transaction(async (manager) => {
+      // Serialize payments for the user, including concurrent first payments.
+      const user = await manager.findOne(User, {
+        where: { id: dto.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) throw new NotFoundException('User not found');
+      let payment: ExpensePayment;
+      let expenseIds: string[] = [];
+      if (dto.paymentId) {
+        const existing = await manager.findOne(ExpensePayment, {
+          where: { id: dto.paymentId, isDeleted: false },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!existing) throw new NotFoundException('Payment not found');
+        if (
+          existing.userId !== dto.userId ||
+          (existing.weekStart instanceof Date
+            ? toDateStr(existing.weekStart)
+            : String(existing.weekStart).slice(0, 10)) !== dto.weekStart ||
+          (existing.weekEnd instanceof Date
+            ? toDateStr(existing.weekEnd)
+            : String(existing.weekEnd).slice(0, 10)) !== dto.weekEnd
+        ) {
+          throw new BadRequestException(
+            'Payment does not belong to the selected user and week',
+          );
+        }
+        payment = existing;
+      } else {
+        const expenseQuery = manager
+          .getRepository(Expense)
+          .createQueryBuilder('w')
 
-    const user = await this.usersRepo.findOne({ where: { id: dto.userId } });
-    if (!user) throw new NotFoundException('User not found');
-
-    // The payment always covers the exact sum of the expenses it attaches —
-    // computed here rather than trusted from the client — so the amount can
-    // never drift from what's actually being marked paid.
-    const amount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-
-    const payment = this.repo.create({
-      userId: dto.userId,
-      userName: user.name,
-      weekStart: new Date(dto.weekStart),
-      weekEnd: new Date(dto.weekEnd),
-      amount,
-      paymentDate: new Date(dto.paymentDate),
-      status: dto.status || 'pending',
-      notes: dto.notes || null,
-      createdById: actorUserId,
+          .where('w.createdBy = :userId', { userId: dto.userId })
+          .andWhere('w.status IN (:...statuses)', {
+            statuses: [ExpenseStatus.ADMIN_APPROVED],
+          })
+          .andWhere('w.expensePaymentId IS NULL')
+          .andWhere('w.isDeleted = false')
+          .andWhere('w.expenseDate BETWEEN :weekStart AND :weekEnd', {
+            weekStart: dto.weekStart,
+            weekEnd: dto.weekEnd,
+          });
+        const expenses = await expenseQuery.getMany();
+        if (!expenses.length)
+          throw new BadRequestException(
+            'No admin-approved, unpaid expenses found for this user in the selected week',
+          );
+        expenseIds = expenses.map((expense) => expense.id);
+        payment = manager.create(ExpensePayment, {
+          userId: dto.userId,
+          userName: user.name,
+          weekStart: new Date(dto.weekStart),
+          weekEnd: new Date(dto.weekEnd),
+          amount:
+            Math.round(
+              expenses.reduce(
+                (sum, expense) => sum + Number(expense.amount),
+                0,
+              ) * 100,
+            ) / 100,
+          paymentDate: new Date(dto.paymentDate),
+          status: 'pending',
+          paymentHistory: [],
+          notes: dto.notes || null,
+          createdById: actorUserId,
+        });
+      }
+      const history = payment.paymentHistory || [];
+      const paid = history.length
+        ? history.reduce((sum, entry) => sum + Number(entry.amount), 0)
+        : payment.status === 'paid'
+          ? Number(payment.amount)
+          : 0;
+      const balance = Math.round((Number(payment.amount) - paid) * 100) / 100;
+      const amount = dto.amount ?? balance;
+      if (!Number.isFinite(amount) || amount <= 0 || amount > balance)
+        throw new BadRequestException(
+          'Payment amount must be positive and cannot exceed the remaining balance',
+        );
+      // Legacy pending creation remains supported; recording money is append-only.
+      if (dto.status !== 'pending') {
+        payment.paymentHistory = [
+          ...history,
+          {
+            id: randomUUID(),
+            amount,
+            paymentDate: dto.paymentDate,
+            paymentMode: dto.paymentMode || 'cash',
+            referenceNumber: dto.referenceNumber?.trim() || null,
+            notes: dto.notes?.trim() || null,
+            createdById: actorUserId,
+          },
+        ];
+        payment.status =
+          Math.round((paid + amount) * 100) >=
+          Math.round(Number(payment.amount) * 100)
+            ? 'paid'
+            : 'partial';
+        payment.paymentDate = new Date(dto.paymentDate);
+      }
+      const result = await manager.save(ExpensePayment, payment);
+      if (expenseIds.length)
+        await manager.update(
+          Expense,
+          { id: In(expenseIds) },
+          { expensePaymentId: result.id },
+        );
+      return result;
     });
-    const saved = await this.repo.save(payment);
-
-    await this.expenseRepo.update(
-      { id: In(expenses.map((e) => e.id)) },
-      { expensePaymentId: saved.id },
-    );
-
-    const weekLabel = `${dto.weekStart} to ${dto.weekEnd}`;
     await this.notifications.createForUser(dto.userId, {
       userId: actorUserId,
       type: 'expense_payment_recorded',
-      title:
-        saved.status === 'paid'
-          ? 'Expense Payment Made'
-          : 'Expense Payment Recorded',
-      message: `${expenses.length} expense${expenses.length > 1 ? 's' : ''} totaling ${amount} for the week of ${weekLabel} ${saved.status === 'paid' ? 'were paid' : 'were recorded for payment'}.`,
+      title: 'Expense Payment Recorded',
+      message: `Expense payment recorded for ${dto.weekStart} to ${dto.weekEnd}.`,
       link: '/dashboard/expenses',
       entityId: saved.id,
     });
-
     return saved;
   }
 
@@ -150,6 +236,11 @@ export class ExpensePaymentsService {
       where: { id, isDeleted: false },
     });
     if (!payment) throw new NotFoundException('Payment not found');
+    if ((payment.paymentHistory || []).length) {
+      throw new BadRequestException(
+        'Record the remaining amount as a payment instead of changing its status',
+      );
+    }
     payment.status = status;
     const saved = await this.repo.save(payment);
 

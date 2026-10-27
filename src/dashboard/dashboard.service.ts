@@ -57,7 +57,7 @@ export class DashboardService {
   ) {}
 
   // Shared by both the purchase-team and site-engineer "assigned projects"
-  // endpoints â€” the shape doesn't depend on role, only on the user's
+  // endpoints — the shape doesn't depend on role, only on the user's
   // `projects` relation (many-to-many assignment).
   async getAssignedProjectsForUser(userId: string) {
     const user = await this.usersRepo.findOne({
@@ -98,7 +98,7 @@ export class DashboardService {
       order: { createdAt: 'DESC' },
     });
 
-    // 1b. Genuinely pending POs (submitted, awaiting approval) â€” distinct
+    // 1b. Genuinely pending POs (submitted, awaiting approval) — distinct
     // from the "active" (approved) ones above.
     const pendingPOCount = await this.poRepo.count({
       where: {
@@ -107,7 +107,7 @@ export class DashboardService {
       },
     });
 
-    // 2. Unpaid bill count (no amounts â€” that's Accounts' concern)
+    // 2. Unpaid bill count (no amounts — that's Accounts' concern)
     const bills = await this.billRepo.find({
       where: { isDeleted: false },
       relations: ['vendor'],
@@ -127,7 +127,7 @@ export class DashboardService {
       where: { isDeleted: false },
     });
 
-    // 5. Recent Activity (Latest POs and Bills â€” no amounts)
+    // 5. Recent Activity (Latest POs and Bills — no amounts)
     const recentPOs = await this.poRepo.find({
       where: { isDeleted: false },
       relations: ['vendor'],
@@ -211,7 +211,7 @@ export class DashboardService {
         inv.status !== InvoiceStatus.CANCELLED,
     ).length;
 
-    // 2. Material payables â€” driven off approved (accounts approved or
+    // 2. Material payables — driven off approved (accounts approved or
     // approved) purchase bills that are not deleted, less what has been paid.
     // Bills raised against the same PO are owed together and offset by every
     // payment made against that PO or its bills; a bill with no PO uses its
@@ -320,13 +320,29 @@ export class DashboardService {
     ]);
     const weeklyPayable = (
       unpaidWeeks: { totalAmount: number }[],
-      recorded: { status: string; amount: number }[],
+      recorded: {
+        status: string;
+        amount: number;
+        paymentHistory?: { amount: number }[];
+      }[],
     ) => {
-      const pending = recorded.filter((p) => p.status === 'pending');
+      const pending = recorded
+        .map((payment) => {
+          const paid = payment.paymentHistory?.length
+            ? payment.paymentHistory.reduce(
+                (sum, entry) => sum + Number(entry.amount),
+                0,
+              )
+            : payment.status === 'paid'
+              ? Number(payment.amount)
+              : 0;
+          return Math.max(0, Number(payment.amount) - paid);
+        })
+        .filter((balance) => balance > 0);
       return {
         amount: roundMoney(
           unpaidWeeks.reduce((sum, w) => sum + Number(w.totalAmount), 0) +
-            pending.reduce((sum, p) => sum + Number(p.amount), 0),
+            pending.reduce((sum, balance) => sum + balance, 0),
         ),
         count: unpaidWeeks.length + pending.length,
       };

@@ -1,5 +1,7 @@
 import {
   IsUUID,
+  IsNumber,
+  Min,
   IsDateString,
   IsIn,
   IsString,
@@ -8,6 +10,23 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateExpensePaymentDto {
+  @IsUUID()
+  @IsOptional()
+  paymentId?: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @IsOptional()
+  amount?: number;
+
+  @IsIn(['cash', 'upi', 'rtgs', 'cheque', 'bank_transfer'])
+  @IsOptional()
+  paymentMode?: string;
+
+  @IsString()
+  @IsOptional()
+  referenceNumber?: string;
+
   @ApiProperty({ example: 'uuid-of-user' })
   @IsUUID()
   userId: string;
