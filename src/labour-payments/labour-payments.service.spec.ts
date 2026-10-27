@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/require-await -- Repository mocks resolve immediately. */
 import { BadRequestException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { LabourPaymentsService } from './labour-payments.service.js';
 import { LabourPayment } from './entities/labour-payment.entity.js';
 import { DailyWorker } from '../daily-labour/entities/daily-worker.entity.js';
@@ -9,7 +10,9 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 describe('Labour payment approval eligibility', () => {
   function setup(statuses: string[]) {
     let allowed: string[] = [];
-    const workers = statuses.map((status) => ({
+    let selectedIds: string[] | undefined;
+    const workers = statuses.map((status, index) => ({
+      id: `worker-${index}`,
       status,
       count: 1,
       shift: 1,
@@ -30,11 +33,19 @@ describe('Labour payment approval eligibility', () => {
       where: jest.fn().mockImplementation(filter),
       andWhere: jest.fn().mockImplementation(filter),
       getMany: jest.fn(async () =>
-        workers.filter((worker) => allowed.includes(worker.status)),
+        workers.filter(
+          (worker) =>
+            allowed.includes(worker.status) &&
+            (!selectedIds || selectedIds.includes(worker.id)),
+        ),
       ),
     };
-    function filter(_sql: string, params?: { statuses?: string[] }) {
+    function filter(
+      _sql: string,
+      params?: { statuses?: string[]; workerIds?: string[] },
+    ) {
       if (params?.statuses) allowed = params.statuses;
+      if (params?.workerIds) selectedIds = params.workerIds;
       return query;
     }
     const manager = {
@@ -62,7 +73,7 @@ describe('Labour payment approval eligibility', () => {
       {} as Repository<User>,
       { createForUser: jest.fn() } as unknown as NotificationsService,
     );
-    return { service, repo, manager };
+    return { service, repo, manager, workers };
   }
 
   it('excludes accounts-only approval from the payable summary', async () => {
@@ -80,6 +91,67 @@ describe('Labour payment approval eligibility', () => {
         teamNames: ['Masonry Team'],
       }),
     ]);
+  });
+
+  it('keeps two teams in separate payable rows in the same engineer week', async () => {
+    const { service, workers } = setup(['admin_approved', 'admin_approved']);
+    workers[1].tradeRel.team.name = 'Carpentry Team';
+    const rows = await service.getUnpaidWeeklySummary();
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          teamNames: ['Masonry Team'],
+          totalAmount: 100,
+          workerIds: ['worker-0'],
+        }),
+        expect.objectContaining({
+          teamNames: ['Carpentry Team'],
+          totalAmount: 100,
+          workerIds: ['worker-1'],
+        }),
+      ]),
+    );
+  });
+
+  it('pays only selected team entries and leaves the other team unattached', async () => {
+    const { service, manager } = setup(['admin_approved', 'admin_approved']);
+    const payment = await service.create(
+      {
+        userId: 'engineer',
+        weekStart: '2026-10-12',
+        weekEnd: '2026-10-18',
+        paymentDate: '2026-10-23',
+        workerIds: ['worker-0'],
+        amount: 40,
+        status: 'paid',
+      },
+      'accounts',
+    );
+    expect(payment.amount).toBe(100);
+    expect(manager.update).toHaveBeenCalledWith(
+      DailyWorker,
+      { id: In(['worker-0']) },
+      { labourPaymentId: 'payment' },
+    );
+  });
+
+  it('rejects stale or ineligible selections without saving', async () => {
+    const { service, repo } = setup(['admin_approved', 'approved']);
+    await expect(
+      service.create(
+        {
+          userId: 'engineer',
+          weekStart: '2026-10-12',
+          weekEnd: '2026-10-18',
+          paymentDate: '2026-10-23',
+          workerIds: ['worker-0', 'worker-1'],
+          amount: 40,
+        },
+        'accounts',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('rejects recording payment for accounts-only approved entries', async () => {
@@ -175,16 +247,59 @@ describe('Labour payment approval eligibility', () => {
   });
   it('does not allow an existing fully paid legacy record to be paid twice', async () => {
     const { service, manager, repo } = setup([]);
-    manager.findOne.mockImplementation(async (entity: unknown) => entity === User ? { id: 'engineer', name: 'Engineer' } : ({ id: 'payment', userId: 'engineer', weekStart: '2026-10-12', weekEnd: '2026-10-18', amount: 100, status: 'paid', paymentHistory: [] } as never));
-    await expect(service.create({ paymentId: 'payment', userId: 'engineer', weekStart: '2026-10-12', weekEnd: '2026-10-18', paymentDate: '2026-10-24', amount: 1 }, 'accounts')).rejects.toBeInstanceOf(BadRequestException);
+    manager.findOne.mockImplementation(async (entity: unknown) =>
+      entity === User
+        ? { id: 'engineer', name: 'Engineer' }
+        : ({
+            id: 'payment',
+            userId: 'engineer',
+            weekStart: '2026-10-12',
+            weekEnd: '2026-10-18',
+            amount: 100,
+            status: 'paid',
+            paymentHistory: [],
+          } as never),
+    );
+    await expect(
+      service.create(
+        {
+          paymentId: 'payment',
+          userId: 'engineer',
+          weekStart: '2026-10-12',
+          weekEnd: '2026-10-18',
+          paymentDate: '2026-10-24',
+          amount: 1,
+        },
+        'accounts',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('rejects a payment record belonging to another engineer', async () => {
     const { service, manager, repo } = setup([]);
-    manager.findOne.mockImplementation(async (entity: unknown) => entity === User ? { id: 'engineer', name: 'Engineer' } : ({ userId: 'another-engineer', weekStart: '2026-10-12', weekEnd: '2026-10-18' } as never));
-    await expect(service.create({ paymentId: 'payment', userId: 'engineer', weekStart: '2026-10-12', weekEnd: '2026-10-18', paymentDate: '2026-10-24', amount: 10 }, 'accounts')).rejects.toBeInstanceOf(BadRequestException);
+    manager.findOne.mockImplementation(async (entity: unknown) =>
+      entity === User
+        ? { id: 'engineer', name: 'Engineer' }
+        : ({
+            userId: 'another-engineer',
+            weekStart: '2026-10-12',
+            weekEnd: '2026-10-18',
+          } as never),
+    );
+    await expect(
+      service.create(
+        {
+          paymentId: 'payment',
+          userId: 'engineer',
+          weekStart: '2026-10-12',
+          weekEnd: '2026-10-18',
+          paymentDate: '2026-10-24',
+          amount: 10,
+        },
+        'accounts',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
-
 });

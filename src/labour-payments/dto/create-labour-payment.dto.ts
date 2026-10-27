@@ -1,5 +1,8 @@
 import {
   IsNumber,
+  IsArray,
+  ArrayNotEmpty,
+  ArrayUnique,
   Min,
   IsUUID,
   IsDateString,
@@ -10,6 +13,13 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLabourPaymentDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  workerIds?: string[];
+
   @IsUUID()
   @IsOptional()
   paymentId?: string;

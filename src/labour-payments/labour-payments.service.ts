@@ -21,6 +21,7 @@ export type UnpaidLabourWeekSummary = {
   entryCount: number;
   projectNames: string[];
   teamNames: string[];
+  workerIds: string[];
 };
 
 // Monday of the week containing `date`, matching Postgres's
@@ -72,7 +73,7 @@ export class LabourPaymentsService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  // One row per (site engineer, week) that still has admin-approved trade
+  // One row per (site engineer, week, labour team) that still has admin-approved trade
   // entries not yet attached to a payment — this is what "Record a Payment"
   // picks from.
   async getUnpaidWeeklySummary(): Promise<UnpaidLabourWeekSummary[]> {
@@ -97,7 +98,11 @@ export class LabourPaymentsService {
       weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
       const weekStart = toDateStr(weekStartDate);
       const weekEnd = toDateStr(weekEndDate);
-      const key = `${report.createdById}|${weekStart}`;
+      const key = JSON.stringify([
+        report.createdById,
+        weekStart,
+        w.tradeRel?.teamId || w.tradeRel?.team?.name || null,
+      ]);
 
       const existing = groups.get(key);
       const amount = entryAmount(w);
@@ -106,6 +111,7 @@ export class LabourPaymentsService {
       if (existing) {
         existing.totalAmount += amount;
         existing.entryCount += 1;
+        existing.workerIds.push(w.id);
         if (projectName && !existing.projectNames.includes(projectName))
           existing.projectNames.push(projectName);
         if (teamName && !existing.teamNames.includes(teamName))
@@ -120,6 +126,7 @@ export class LabourPaymentsService {
           entryCount: 1,
           projectNames: projectName ? [projectName] : [],
           teamNames: teamName ? [teamName] : [],
+          workerIds: [w.id],
         });
       }
     }
@@ -171,7 +178,7 @@ export class LabourPaymentsService {
         }
         payment = existing;
       } else {
-        const workers = await manager
+        const workerQuery = manager
           .getRepository(DailyWorker)
           .createQueryBuilder('w')
           .innerJoinAndSelect('w.report', 'r')
@@ -185,8 +192,18 @@ export class LabourPaymentsService {
           .andWhere('r.reportDate BETWEEN :weekStart AND :weekEnd', {
             weekStart: dto.weekStart,
             weekEnd: dto.weekEnd,
-          })
-          .getMany();
+          });
+        if (dto.workerIds) {
+          workerQuery.andWhere('w.id IN (:...workerIds)', {
+            workerIds: dto.workerIds,
+          });
+        }
+        const workers = await workerQuery.getMany();
+        if (dto.workerIds && workers.length !== new Set(dto.workerIds).size) {
+          throw new BadRequestException(
+            'Selected labour entries have changed. Refresh and try again',
+          );
+        }
         if (!workers.length)
           throw new BadRequestException(
             'No admin-approved, unpaid trade entries found for this site engineer in the selected week',
@@ -263,9 +280,36 @@ export class LabourPaymentsService {
   }
 
   async findAll() {
-    return this.repo.find({
+    const payments = await this.repo.find({
       where: { isDeleted: false },
       order: { weekStart: 'DESC', createdAt: 'DESC' },
+    });
+    if (!payments.length) return [];
+    const workers = await this.workerRepo.find({
+      where: { labourPaymentId: In(payments.map((payment) => payment.id)) },
+      relations: { tradeRel: { team: true }, report: { project: true } },
+    });
+    return payments.map((payment) => {
+      const entries = workers.filter(
+        (worker) => worker.labourPaymentId === payment.id,
+      );
+      return {
+        ...payment,
+        teamNames: [
+          ...new Set(
+            entries.map(
+              (worker) => worker.tradeRel?.team?.name || 'Unassigned Team',
+            ),
+          ),
+        ],
+        projectNames: [
+          ...new Set(
+            entries
+              .map((worker) => worker.report?.project?.name)
+              .filter((name): name is string => !!name),
+          ),
+        ],
+      };
     });
   }
 
