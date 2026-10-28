@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { SubcontractorBill } from '../../subcontractor-bills/entities/subcontractor-bill.entity.js';
 import { Subcontractor } from '../../subcontractors/entities/subcontractor.entity.js';
 import { Project } from '../../projects/entities/project.entity.js';
 import { SubcontractWorkOrder } from '../../subcontract-work-orders/entities/subcontract-work-order.entity.js';
@@ -36,6 +37,13 @@ export class SubcontractorPaymentRequest {
   @ManyToOne(() => SubcontractWorkOrder, { eager: true })
   @JoinColumn({ name: 'subcontractWorkOrderId' })
   subcontractWorkOrder: SubcontractWorkOrder | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  subcontractorBillId: string | null;
+
+  @ManyToOne(() => SubcontractorBill, { eager: true, nullable: true })
+  @JoinColumn({ name: 'subcontractorBillId' })
+  subcontractorBill: SubcontractorBill | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;

@@ -2,6 +2,10 @@ import { IsUUID, IsString, IsNumber, Min, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAdvanceRequestDto {
+  @ApiProperty({ example: 'uuid-of-approved-purchase-bill' })
+  @IsUUID()
+  purchaseBillId: string;
+
   @ApiProperty({ example: 'uuid-of-vendor' })
   @IsUUID()
   vendorId: string;

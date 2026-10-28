@@ -1,3 +1,5 @@
+import { SubcontractorBill } from '../subcontractor-bills/entities/subcontractor-bill.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SubcontractorPaymentRequestsController } from './subcontractor-payment-requests.controller.js';
@@ -7,7 +9,11 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SubcontractorPaymentRequest]),
+    TypeOrmModule.forFeature([
+      SubcontractorPaymentRequest,
+      SubcontractorBill,
+      Payment,
+    ]),
     NotificationsModule,
   ],
   controllers: [SubcontractorPaymentRequestsController],

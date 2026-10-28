@@ -2,6 +2,10 @@ import { IsUUID, IsString, IsNumber, Min, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateSubcontractorPaymentRequestDto {
+  @ApiProperty({ example: 'uuid-of-approved-subcontractor-bill' })
+  @IsUUID()
+  subcontractorBillId: string;
+
   @ApiProperty({ example: 'uuid-of-subcontractor' })
   @IsUUID()
   subcontractorId: string;

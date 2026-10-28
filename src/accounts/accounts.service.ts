@@ -434,6 +434,10 @@ export class AccountsService {
       throw new ForbiddenException('Only admin can give final approval');
     }
 
+    if (status === BillStatus.APPROVED && bill.status !== BillStatus.ADMIN_APPROVED && bill.status !== BillStatus.APPROVED) {
+      throw new BadRequestException('Accounts must approve the bill before final admin approval');
+    }
+
     // Gate: a bill can only be accounts-approved once all three documents
     // have been opened and checked.
     if (status === BillStatus.ADMIN_APPROVED) {

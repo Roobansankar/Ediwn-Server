@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { Payment } from './entities/payment.entity.js';
 import { CreatePaymentDto } from './dto/create-payment.dto.js';
 import {
@@ -46,27 +46,97 @@ export class PaymentsService {
       let vendorId = dto.vendorId;
       let payeeName = dto.payeeName;
 
-      if (dto.purchaseBillId) {
-        const bill = await manager.findOne(PurchaseBill, {
-          where: { id: dto.purchaseBillId },
-        });
-        if (!bill) throw new NotFoundException('Purchase Bill not found');
-
-        projectId = bill.projectId;
-        vendorId = bill.vendorId;
-
-        // Update bill paid amount
-        const newPaidAmount = Number(bill.paidAmount) + Number(dto.amount);
-        bill.paidAmount = newPaidAmount;
-
-        if (newPaidAmount >= Number(bill.amount)) {
-          bill.paidAt = new Date();
+      const advanceRequest = dto.advanceRequestId
+          ? await manager.findOne(AdvanceRequest, {
+              where: { id: dto.advanceRequestId, isDeleted: false },
+              loadEagerRelations: false,
+              lock: { mode: 'pessimistic_write' },
+            })
+          : null;
+        if (dto.advanceRequestId && !advanceRequest)
+          throw new NotFoundException('Vendor payment request not found');
+        if (advanceRequest && advanceRequest.status !== 'admin_approved')
+          throw new BadRequestException(
+            'This vendor payment request has not received final admin approval yet',
+          );
+        if (
+          advanceRequest?.purchaseBillId &&
+          dto.purchaseBillId &&
+          dto.purchaseBillId !== advanceRequest.purchaseBillId
+        )
+          throw new BadRequestException(
+            'Payment bill does not match the approved request',
+          );
+        const purchaseBillId =
+          advanceRequest?.purchaseBillId || dto.purchaseBillId;
+        if (advanceRequest) {
+          projectId = advanceRequest.projectId;
+          vendorId = advanceRequest.vendorId;
+          const previous = await manager.find(Payment, {
+            where: { advanceRequestId: advanceRequest.id, isDeleted: false },
+          });
+          const balance =
+            Number(advanceRequest.approvedAmount ?? advanceRequest.amount) -
+            previous.reduce((sum, payment) => sum + Number(payment.amount), 0);
+          if (Number(dto.amount) > Math.round(balance * 100) / 100)
+            throw new BadRequestException(
+              'Payment exceeds the approved request remaining balance',
+            );
         }
 
-        await manager.save(bill);
-      }
+        if (purchaseBillId) {
+          const bill = await manager.findOne(PurchaseBill, {
+            where: { id: purchaseBillId, isDeleted: false },
+            loadEagerRelations: false,
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!bill) throw new NotFoundException('Purchase Bill not found');
+          if (advanceRequest?.purchaseBillId) {
+            if (bill.status !== BillStatus.APPROVED)
+              throw new BadRequestException(
+                'The bill must have final admin approval before payment',
+              );
+            if (
+              dto.purchaseOrderId &&
+              bill.purchaseOrderId !== dto.purchaseOrderId
+            )
+              throw new BadRequestException(
+                'Purchase order does not match the approved bill',
+              );
+            const legacy = bill.purchaseOrderId
+              ? await manager.find(Payment, {
+                  where: {
+                    purchaseOrderId: bill.purchaseOrderId,
+                    purchaseBillId: IsNull(),
+                    isDeleted: false,
+                  },
+                })
+              : [];
+            const balance =
+              Number(bill.amount) -
+              Number(bill.paidAmount || 0) -
+              legacy.reduce((sum, payment) => sum + Number(payment.amount), 0);
+            if (Number(dto.amount) > Math.round(balance * 100) / 100)
+              throw new BadRequestException(
+                'Payment exceeds the approved bill remaining balance',
+              );
+          }
 
-      if (dto.purchaseOrderId) {
+          projectId = bill.projectId;
+          vendorId = bill.vendorId;
+
+          // Update bill paid amount
+          const newPaidAmount = Number(bill.paidAmount) + Number(dto.amount);
+          bill.paidAmount = newPaidAmount;
+
+          if (newPaidAmount >= Number(bill.amount)) {
+            bill.paidAt = new Date();
+          }
+
+          await manager.save(bill);
+        }
+
+        if (dto.purchaseOrderId) {
         const po = await manager.findOne(PurchaseOrder, {
           where: { id: dto.purchaseOrderId },
         });
@@ -74,21 +144,6 @@ export class PaymentsService {
 
         if (!projectId) projectId = po.projectId;
         if (!vendorId) vendorId = po.vendorId;
-      }
-
-      if (dto.advanceRequestId) {
-        const advanceRequest = await manager.findOne(AdvanceRequest, {
-          where: { id: dto.advanceRequestId },
-        });
-        if (!advanceRequest)
-          throw new NotFoundException('Vendor payment request not found');
-        if (advanceRequest.status !== 'admin_approved')
-          throw new BadRequestException(
-            'This vendor payment request has not received final admin approval yet',
-          );
-
-        if (!projectId) projectId = advanceRequest.projectId;
-        if (!vendorId) vendorId = advanceRequest.vendorId;
       }
 
       if (dto.subcontractWorkOrderId) {
@@ -102,12 +157,44 @@ export class PaymentsService {
         if (!payeeName) payeeName = swo.subcontractor?.name;
       }
 
-      if (dto.subcontractorBillId) {
+      const subcontractorRequest = dto.subcontractorPaymentRequestId ? await manager.findOne(SubcontractorPaymentRequest, {
+        where: { id: dto.subcontractorPaymentRequestId, isDeleted: false },
+        loadEagerRelations: false, lock: { mode: 'pessimistic_write' },
+      }) : null;
+      if (dto.subcontractorPaymentRequestId && !subcontractorRequest)
+        throw new NotFoundException('Subcontractor payment request not found');
+      if (subcontractorRequest && subcontractorRequest.status !== 'admin_approved')
+        throw new BadRequestException('This subcontractor payment request has not received final admin approval yet');
+      if (subcontractorRequest?.subcontractorBillId && dto.subcontractorBillId && dto.subcontractorBillId !== subcontractorRequest.subcontractorBillId)
+        throw new BadRequestException('Payment bill does not match the approved request');
+      const subcontractorBillId = subcontractorRequest?.subcontractorBillId || dto.subcontractorBillId;
+      if (subcontractorRequest) {
+        projectId = subcontractorRequest.projectId;
+        const previous = await manager.find(Payment, { where: { subcontractorPaymentRequestId: subcontractorRequest.id, isDeleted: false } });
+        const balance = Number(subcontractorRequest.approvedAmount ?? subcontractorRequest.amount) - previous.reduce((sum, payment) => sum + Number(payment.amount), 0);
+        if (Number(dto.amount) > Math.round(balance * 100) / 100)
+          throw new BadRequestException('Payment exceeds the approved request remaining balance');
+      }
+      if (subcontractorBillId) {
         const bill = await manager.findOne(SubcontractorBill, {
-          where: { id: dto.subcontractorBillId },
+          where: { id: subcontractorBillId, isDeleted: false },
+          loadEagerRelations: false, lock: { mode: 'pessimistic_write' },
           relations: ['subcontractor'],
         });
         if (!bill) throw new NotFoundException('Subcontractor bill not found');
+        if (subcontractorRequest?.subcontractorBillId) {
+          if (bill.status !== BillStatus.APPROVED)
+            throw new BadRequestException('The bill must have final admin approval before payment');
+          if (dto.subcontractWorkOrderId && bill.subcontractWorkOrderId !== dto.subcontractWorkOrderId)
+            throw new BadRequestException('Work order does not match the approved bill');
+          const legacy = bill.subcontractWorkOrderId ? await manager.find(Payment, {
+            where: { subcontractWorkOrderId: bill.subcontractWorkOrderId, subcontractorBillId: IsNull(), isDeleted: false },
+          }) : [];
+          const balance = Number(bill.amount) - Number(bill.paidAmount || 0) - legacy.reduce((sum, payment) => sum + Number(payment.amount), 0);
+          if (Number(dto.amount) > Math.round(balance * 100) / 100)
+            throw new BadRequestException('Payment exceeds the approved bill remaining balance');
+        }
+
 
         if (!projectId) projectId = bill.projectId;
         if (!payeeName) payeeName = bill.subcontractor?.name;
@@ -121,22 +208,6 @@ export class PaymentsService {
         }
 
         await manager.save(bill);
-      }
-
-      if (dto.subcontractorPaymentRequestId) {
-        const request = await manager.findOne(SubcontractorPaymentRequest, {
-          where: { id: dto.subcontractorPaymentRequestId },
-          relations: ['subcontractor'],
-        });
-        if (!request)
-          throw new NotFoundException('Subcontractor payment request not found');
-        if (request.status !== 'admin_approved')
-          throw new BadRequestException(
-            'This subcontractor payment request has not received final admin approval yet',
-          );
-
-        if (!projectId) projectId = request.projectId;
-        if (!payeeName) payeeName = request.subcontractor?.name;
       }
 
       if (dto.salesInvoiceId) {
@@ -167,6 +238,8 @@ export class PaymentsService {
 
       const payment = manager.create(Payment, {
         ...dto,
+        purchaseBillId,
+        subcontractorBillId,
         projectId,
         vendorId,
         payeeName,

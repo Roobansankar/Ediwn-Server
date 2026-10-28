@@ -1,3 +1,5 @@
+import { PurchaseBill } from '../accounts/entities/purchase-bill.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdvanceRequestsController } from './advance-requests.controller.js';
@@ -10,7 +12,14 @@ import { PurchaseOrder } from '../purchase-orders/entities/purchase-order.entity
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdvanceRequest, PurchaseEnquiry, VendorQuotation, PurchaseOrder]),
+    TypeOrmModule.forFeature([
+      AdvanceRequest,
+      PurchaseEnquiry,
+      VendorQuotation,
+      PurchaseOrder,
+      PurchaseBill,
+      Payment,
+    ]),
     NotificationsModule,
   ],
   controllers: [AdvanceRequestsController],

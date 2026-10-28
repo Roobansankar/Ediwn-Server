@@ -5,11 +5,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull, type FindOptionsWhere } from 'typeorm';
 import { SubcontractorPaymentRequest } from './entities/subcontractor-payment-request.entity.js';
 import { CreateSubcontractorPaymentRequestDto } from './dto/create-subcontractor-payment-request.dto.js';
 import { RespondSubcontractorPaymentRequestDto } from './dto/respond-subcontractor-payment-request.dto.js';
-import { Role } from '../common/enums.js';
+import { SubcontractorBill } from '../subcontractor-bills/entities/subcontractor-bill.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
+import { BillStatus, Role } from '../common/enums.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
@@ -18,13 +20,55 @@ export class SubcontractorPaymentRequestsService {
     @InjectRepository(SubcontractorPaymentRequest)
     private repo: Repository<SubcontractorPaymentRequest>,
     private notifications: NotificationsService,
+    @InjectRepository(SubcontractorBill)
+    private billRepo: Repository<SubcontractorBill>,
+    @InjectRepository(Payment)
+    private paymentRepo: Repository<Payment>,
   ) {}
 
   async create(dto: CreateSubcontractorPaymentRequestDto, userId: string) {
+    const bill = await this.billRepo.findOne({
+      where: { id: dto.subcontractorBillId, isDeleted: false },
+    });
+    if (!bill) throw new NotFoundException('Subcontractor bill not found');
+    if (bill.status !== BillStatus.APPROVED)
+      throw new BadRequestException(
+        'The bill must be approved by accounts and admin before requesting payment',
+      );
+    if (
+      bill.subcontractorId !== dto.subcontractorId ||
+      bill.projectId !== dto.projectId ||
+      (dto.subcontractWorkOrderId &&
+        bill.subcontractWorkOrderId !== dto.subcontractWorkOrderId)
+    )
+      throw new BadRequestException(
+        'Selected bill does not match the subcontractor, project and work order',
+      );
+    const legacy = bill.subcontractWorkOrderId
+      ? await this.paymentRepo.find({
+          where: {
+            subcontractWorkOrderId: bill.subcontractWorkOrderId,
+            subcontractorBillId: IsNull(),
+            isDeleted: false,
+          },
+        })
+      : [];
+    const balance =
+      Math.round(
+        (Number(bill.amount) -
+          Number(bill.paidAmount || 0) -
+          legacy.reduce((sum, payment) => sum + Number(payment.amount), 0)) *
+          100,
+      ) / 100;
+    if (!Number.isFinite(dto.amount) || dto.amount <= 0 || dto.amount > balance)
+      throw new BadRequestException(
+        'Requested amount cannot exceed the approved bill remaining balance',
+      );
     const request = this.repo.create({
       subcontractorId: dto.subcontractorId,
       projectId: dto.projectId,
-      subcontractWorkOrderId: dto.subcontractWorkOrderId || null,
+      subcontractWorkOrderId: bill.subcontractWorkOrderId || null,
+      subcontractorBillId: bill.id,
       amount: dto.amount,
       notes: dto.notes || null,
       requestedById: userId,
@@ -37,15 +81,17 @@ export class SubcontractorPaymentRequestsService {
       type: 'subcontractor_payment_request',
       title: 'New Subcontractor Payment Request',
       message: `A subcontractor payment of ${dto.amount} was requested`,
-      link: '/dashboard/payments?tab=subcontractor',
+      link: '/dashboard/approvals?tab=subcontractor',
       entityId: saved.id,
     });
 
     return saved;
   }
 
-  async findAll(user: { id: string; role: string }, status?: string) {
-    const where: any = { isDeleted: false };
+  async findAll(user: { id: string; role: Role }, status?: string) {
+    const where: FindOptionsWhere<SubcontractorPaymentRequest> = {
+      isDeleted: false,
+    };
     if (user.role !== Role.ADMIN && user.role !== Role.ACCOUNTS_MANAGER) {
       where.requestedById = user.id;
     }
@@ -60,7 +106,7 @@ export class SubcontractorPaymentRequestsService {
     id: string,
     dto: RespondSubcontractorPaymentRequestDto,
     userId: string,
-    userRole: string,
+    userRole: Role,
   ) {
     const request = await this.repo.findOne({
       where: { id, isDeleted: false },
@@ -74,8 +120,21 @@ export class SubcontractorPaymentRequestsService {
         throw new BadRequestException(
           'Request must be accepted by accounts before final admin approval',
         );
-    } else if (request.status !== 'pending') {
-      throw new BadRequestException('Request already responded');
+    } else if (dto.action === 'accepted') {
+      if (userRole !== Role.ACCOUNTS_MANAGER)
+        throw new ForbiddenException(
+          'Only accounts can give accounts approval',
+        );
+      if (request.status !== 'pending')
+        throw new BadRequestException('Request already responded');
+    } else {
+      const canReject =
+        (userRole === Role.ACCOUNTS_MANAGER && request.status === 'pending') ||
+        (userRole === Role.ADMIN && request.status === 'accepted');
+      if (!canReject)
+        throw new BadRequestException(
+          'Only the current approval stage can reject this request',
+        );
     }
 
     // Admin fixes the final amount accounts will pay (defaults to the
@@ -125,7 +184,7 @@ export class SubcontractorPaymentRequestsService {
         type: 'subcontractor_payment_request_pending_approval',
         title: 'Subcontractor Payment Awaiting Your Approval',
         message: `A subcontractor payment of ${request.amount} was accepted by accounts and needs your final approval.`,
-        link: '/dashboard/payments?tab=subcontractor',
+        link: '/dashboard/approvals?tab=subcontractor',
         entityId: request.id,
       });
     } else if (dto.action === 'admin_approved') {

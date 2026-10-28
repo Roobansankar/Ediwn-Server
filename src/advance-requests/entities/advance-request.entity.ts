@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import { PurchaseBill } from '../../accounts/entities/purchase-bill.entity.js';
 import { Vendor } from '../../vendors/entities/vendor.entity.js';
 import { Project } from '../../projects/entities/project.entity.js';
 import { VendorQuotation } from '../../vendor-quotations/entities/vendor-quotation.entity.js';
@@ -47,6 +48,13 @@ export class AdvanceRequest {
   @ManyToOne(() => PurchaseOrder, { eager: true })
   @JoinColumn({ name: 'purchaseOrderId' })
   purchaseOrder: PurchaseOrder | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  purchaseBillId: string | null;
+
+  @ManyToOne(() => PurchaseBill, { eager: true, nullable: true })
+  @JoinColumn({ name: 'purchaseBillId' })
+  purchaseBill: PurchaseBill | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
