@@ -38,8 +38,8 @@ export class TimesheetAttendanceController {
   }
 
   @Get('all')
-  @Roles(Role.ADMIN, Role.ACCOUNTS_MANAGER, Role.PURCHASE_TEAM)
-  @ApiOperation({ summary: 'Get all timesheets (admin/accounts)' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get all staff timesheets (admin only)' })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -89,8 +89,8 @@ export class TimesheetAttendanceController {
   }
 
   @Patch(':id/verify')
-  @Roles(Role.ACCOUNTS_MANAGER)
-  @ApiOperation({ summary: 'Verify timesheet (accounts team)' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Verify timesheet (admin only)' })
   verify(@Param('id') id: string, @Request() req: any) {
     return this.service.verify(id, req.user.id);
   }
