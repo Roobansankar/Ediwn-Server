@@ -58,6 +58,54 @@ describe('Expense payment installments', () => {
     return { service, repo, manager };
   }
 
+  it('preserves Monday-to-Sunday calendar dates in unpaid summaries', async () => {
+    const query = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn(async () => [
+        {
+          userId: 'engineer',
+          userName: 'Engineer',
+          weekStart: '2026-10-26',
+          weekEnd: '2026-11-01',
+          totalAmount: '100.00',
+          expenseCount: '1',
+        },
+      ]),
+    };
+    const service = new ExpensePaymentsService(
+      {} as Repository<ExpensePayment>,
+      { createQueryBuilder: () => query } as unknown as Repository<Expense>,
+      {} as Repository<User>,
+      {} as NotificationsService,
+    );
+    await expect(service.getUnpaidWeeklySummary()).resolves.toEqual([
+      {
+        userId: 'engineer',
+        userName: 'Engineer',
+        weekStart: '2026-10-26',
+        weekEnd: '2026-11-01',
+        totalAmount: 100,
+        expenseCount: 1,
+      },
+    ]);
+    expect(query.addSelect).toHaveBeenCalledWith(
+      `to_char(date_trunc('week', e.expenseDate), 'YYYY-MM-DD')`,
+      'weekStart',
+    );
+    expect(query.addSelect).toHaveBeenCalledWith(
+      `to_char(date_trunc('week', e.expenseDate) + interval '6 days', 'YYYY-MM-DD')`,
+      'weekEnd',
+    );
+  });
+
   it('rejects recording payment for accounts-only approved entries', async () => {
     const { service, repo } = setup(['approved']);
     await expect(

@@ -65,9 +65,12 @@ export class ExpensePaymentsService {
       .innerJoin('e.creator', 'u')
       .select('e.createdBy', 'userId')
       .addSelect('u.name', 'userName')
-      .addSelect(`date_trunc('week', e.expenseDate)`, 'weekStart')
       .addSelect(
-        `date_trunc('week', e.expenseDate) + interval '6 days'`,
+        `to_char(date_trunc('week', e.expenseDate), 'YYYY-MM-DD')`,
+        'weekStart',
+      )
+      .addSelect(
+        `to_char(date_trunc('week', e.expenseDate) + interval '6 days', 'YYYY-MM-DD')`,
         'weekEnd',
       )
       .addSelect('SUM(e.amount)', 'totalAmount')
@@ -85,8 +88,10 @@ export class ExpensePaymentsService {
     return rows.map((r) => ({
       userId: r.userId,
       userName: r.userName,
-      weekStart: toDateStr(new Date(r.weekStart)),
-      weekEnd: toDateStr(new Date(r.weekEnd)),
+      // Keep database calendar dates intact; converting local midnight to UTC
+      // can move Monday back to Sunday and make payment validation fail.
+      weekStart: r.weekStart,
+      weekEnd: r.weekEnd,
       totalAmount: Number(r.totalAmount),
       expenseCount: Number(r.expenseCount),
     }));
